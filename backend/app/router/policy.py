@@ -8,17 +8,9 @@ Pure function over the static registry: no LLM calls, no prompt I/O.
 never be confused with answer quality (a Phase 6 concern).
 """
 
-from app.models.registry import ModelSpec, Tier, list_models
+from app.models.registry import CAPABILITY_TAGS, ModelSpec, Tier, list_models
 from app.router.agent import traceable
 from app.router.schemas import RouteStage, RouterDecision
-
-# Decision capability → registry capability tags (any-tag match).
-CAPABILITY_TAGS: dict[str, set[str]] = {
-    "text": {"chat"},
-    "coding": {"code", "coding", "code-assist"},
-    "reasoning": {"reasoning"},
-    "image": {"vision"},
-}
 
 
 def _cost_key(m: ModelSpec) -> tuple[float, str]:

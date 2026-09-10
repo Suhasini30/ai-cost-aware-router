@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.core.config import settings
 from app.eval.schemas import AskRequest, AskResponse
+from app.execution.base import ProviderUnavailableError
 from app.router.agent import classify_prompt
 from app.router.pipeline import answer_prompt
 from app.router.policy import route_decision
@@ -33,6 +34,8 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     prompt = _validate_prompt(req.prompt)
     try:
         decision, model_used, latency_ms, tokens = classify_prompt(prompt)
+    except ProviderUnavailableError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # never leak internals to the client
         raise HTTPException(status_code=500, detail="classification failed") from exc
     return ClassifyResponse(
@@ -57,6 +60,8 @@ def route(req: RouteRequest) -> RouteResponse:
         selected, trace, fallback = route_decision(
             decision, threshold=settings.confidence_threshold
         )
+    except ProviderUnavailableError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # never leak internals to the client
         raise HTTPException(status_code=500, detail="routing failed") from exc
     return RouteResponse(
@@ -82,5 +87,7 @@ def ask(req: AskRequest) -> AskResponse:
     prompt = _validate_prompt(req.prompt)
     try:
         return answer_prompt(prompt)
+    except ProviderUnavailableError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # never leak internals to the client
         raise HTTPException(status_code=500, detail="ask pipeline failed") from exc

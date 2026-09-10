@@ -95,6 +95,17 @@ REGISTRY: dict[str, ModelSpec] = {
 }
 
 
+# Decision capability → registry capability tags (any-tag match).
+# Lives here (not in router/policy) so execution-side code can share
+# the vocabulary without importing the router (import-cycle safety).
+CAPABILITY_TAGS: dict[str, set[str]] = {
+    "text": {"chat"},
+    "coding": {"code", "coding", "code-assist"},
+    "reasoning": {"reasoning"},
+    "image": {"vision"},
+}
+
+
 def list_providers() -> list[str]:
     """Return distinct provider values present in the registry."""
     return sorted({spec.provider.value for spec in REGISTRY.values()})
