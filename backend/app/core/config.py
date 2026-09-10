@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve backend/.env regardless of CWD (uvicorn, pytest, etc.)
@@ -41,6 +41,16 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_classifier_model(self) -> "Settings":
+        provider = self.classifier_provider.lower()
+        model = self.classifier_model.lower()
+        if provider == "gemini" and "gemini" not in model:
+            raise ValueError(f"Model {self.classifier_model} is not compatible with provider gemini")
+        if provider == "mistral" and "mistral" not in model and "mixtral" not in model:
+            raise ValueError(f"Model {self.classifier_model} is not compatible with provider mistral")
+        return self
 
 
 settings = Settings()

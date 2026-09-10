@@ -132,13 +132,15 @@ def _scope(provider: str | None) -> list[ModelSpec]:
 
 
 def get_cheapest_model(provider: str | None = None) -> ModelSpec:
-    """Cheapest model by input price within scope.
+    """Cheapest model by combined input+output price within scope.
 
     Pure data lookup — no confidence/threshold logic (Phase 4 decides
     *when* to prefer cheap vs strong).
     """
     candidates = _scope(provider)
-    return min(candidates, key=lambda m: (m.input_cost_per_1k, m.output_cost_per_1k, m.id))
+    return min(
+        candidates, key=lambda m: (m.input_cost_per_1k + m.output_cost_per_1k, m.id)
+    )
 
 
 def get_strong_model(provider: str | None = None) -> ModelSpec:
@@ -153,4 +155,6 @@ def get_strong_model(provider: str | None = None) -> ModelSpec:
     if not candidates:
         scope = provider or "global"
         raise ValueError(f"No strong-tier model in scope: {scope!r}")
-    return min(candidates, key=lambda m: (m.input_cost_per_1k, m.output_cost_per_1k, m.id))
+    return min(
+        candidates, key=lambda m: (m.input_cost_per_1k + m.output_cost_per_1k, m.id)
+    )
