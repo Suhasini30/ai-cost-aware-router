@@ -51,7 +51,7 @@ _SUMMARY_RE = re.compile(r"\b(summar\w*|tldr|tl;dr|shorten\w*|condens\w*|recap)\
 _COMPLEX_RE = re.compile(r"\b(complex|algorithm|architect|optimiz|distributed|concurren|production|critical)\b")
 
 
-def fallback_classify(prompt: str) -> RouterDecision:
+def fallback_classify(prompt: str, threshold: float = 0.75) -> RouterDecision:
     """Deterministic keyword heuristic (offline/dev safe)."""
     text = prompt.lower()
     if _IMAGE_RE.search(text):
@@ -60,7 +60,7 @@ def fallback_classify(prompt: str) -> RouterDecision:
             complexity="high",
             capability="image",
             quality_required="high",
-            confidence=0.6,
+            confidence=max(0.0, threshold - 0.1),
             reason="Fallback: prompt mentions image/visual content.",
         )
     if _CODE_RE.search(text):
@@ -70,7 +70,7 @@ def fallback_classify(prompt: str) -> RouterDecision:
             complexity="high" if complex_ else "low",
             capability="coding",
             quality_required="high" if complex_ else "standard",
-            confidence=0.65,
+            confidence=max(0.0, threshold - 0.05),
             reason="Fallback: prompt contains code-related keywords.",
         )
     if _MATH_RE.search(text) or (
@@ -82,7 +82,7 @@ def fallback_classify(prompt: str) -> RouterDecision:
             complexity="high" if complex_ else "low",
             capability="reasoning",
             quality_required="high" if complex_ else "standard",
-            confidence=0.6,
+            confidence=max(0.0, threshold - 0.1),
             reason="Fallback: prompt looks like a math problem.",
         )
     if _SUMMARY_RE.search(text):
@@ -91,7 +91,7 @@ def fallback_classify(prompt: str) -> RouterDecision:
             complexity="low",
             capability="text",
             quality_required="standard",
-            confidence=0.65,
+            confidence=max(0.0, threshold - 0.05),
             reason="Fallback: prompt asks for a summary.",
         )
     return RouterDecision(
@@ -99,7 +99,7 @@ def fallback_classify(prompt: str) -> RouterDecision:
         complexity="low",
         capability="text",
         quality_required="standard",
-        confidence=0.55,
+        confidence=max(0.0, threshold - 0.15),
         reason="Fallback: no specific signals, treating as general question.",
     )
 
@@ -176,7 +176,7 @@ def classify_prompt(
         decision = RouterDecision(**payload)
         model_used = cfg.classifier_model
     except Exception:
-        decision = fallback_classify(prompt)
+        decision = fallback_classify(prompt, cfg.confidence_threshold)
         model_used, tokens = FALLBACK_MODEL, None
 
     latency_ms = (time.perf_counter() - started) * 1000.0

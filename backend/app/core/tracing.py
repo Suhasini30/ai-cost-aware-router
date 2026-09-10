@@ -26,4 +26,4 @@ def setup_tracing(app_settings: Settings) -> bool:
     )
     os.environ["LANGCHAIN_API_KEY"] = key
     os.environ["LANGCHAIN_PROJECT"] = app_settings.langchain_project
-    return True
+    return bool(key and app_settings.langchain_tracing_v2)
