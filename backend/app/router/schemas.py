@@ -11,7 +11,10 @@ from pydantic import BaseModel, Field
 
 from app.models.registry import ModelSpec
 
-TaskType = Literal["summarization", "coding", "math", "general_qa", "image"]
+TaskType = Literal[
+    "summarization", "coding", "math", "general_qa", "image",
+    "classification", "extraction",
+]
 Complexity = Literal["low", "high"]
 Capability = Literal["text", "coding", "reasoning", "image"]
 QualityRequired = Literal["standard", "high"]

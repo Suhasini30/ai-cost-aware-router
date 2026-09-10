@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     execution_timeout_s: float = Field(default=30.0, gt=0.0)
     execution_max_tokens: int = Field(default=1024, gt=0)
 
+    # Phase 6 quality judge: FIXED strongest model (accuracy first),
+    # like the classifier. quality_pass_threshold is ANSWER quality and
+    # must never be confused with confidence_threshold (classification).
+    judge_model: str = "mistral-large-latest"
+    judge_provider: str = "mistral"
+    quality_pass_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",

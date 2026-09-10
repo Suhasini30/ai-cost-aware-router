@@ -25,7 +25,7 @@ FALLBACK_MODEL = "fallback"
 
 _SYSTEM_PROMPT = """You classify user prompts for a cost-aware model router.
 Reply with JSON ONLY, exactly these keys:
-{"task_type": "summarization|coding|math|general_qa|image",
+{"task_type": "summarization|coding|math|general_qa|image|classification|extraction",
  "complexity": "low|high",
  "capability": "text|coding|reasoning|image",
  "quality_required": "standard|high",
@@ -36,6 +36,8 @@ _IMAGE_RE = re.compile(r"\b(image|images|draw|drawing|paint|picture|photo|logo|i
 _CODE_RE = re.compile(r"\b(code|coding|debug|function|class|bug|script|program|api|sql|refactor|compile|deploy)\b")
 _MATH_RE = re.compile(r"\b(calculat|solve|equation|math|integral|derivative|algebra|statistic|percent|theorem|proof)\b")
 _SUMMARY_RE = re.compile(r"\b(summar\w*|tldr|tl;dr|shorten\w*|condens\w*|recap)\b")
+_CLASSIFY_RE = re.compile(r"\b(classif\w*|categor\w*|sentiment|spam|ham|label\b|labels|tag\b|tags)\b")
+_EXTRACT_RE = re.compile(r"\b(extract\w*|entit\w*|keywords?|key phrases?|parse|line items?|fields?)\b")
 _COMPLEX_RE = re.compile(r"\b(complex|algorithm|architect|optimiz|distributed|concurren|production|critical)\b")
 
 
@@ -81,6 +83,24 @@ def fallback_classify(prompt: str, threshold: float = 0.75) -> RouterDecision:
             quality_required="standard",
             confidence=max(0.0, threshold - 0.05),
             reason="Fallback: prompt asks for a summary.",
+        )
+    if _CLASSIFY_RE.search(text):
+        return RouterDecision(
+            task_type="classification",
+            complexity="low",
+            capability="text",
+            quality_required="standard",
+            confidence=max(0.0, threshold - 0.05),
+            reason="Fallback: prompt asks to classify or label content.",
+        )
+    if _EXTRACT_RE.search(text):
+        return RouterDecision(
+            task_type="extraction",
+            complexity="low",
+            capability="text",
+            quality_required="standard",
+            confidence=max(0.0, threshold - 0.05),
+            reason="Fallback: prompt asks to extract structured data.",
         )
     return RouterDecision(
         task_type="general_qa",
