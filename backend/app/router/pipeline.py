@@ -48,6 +48,8 @@ def answer_prompt(
         provider=selected.provider.value,
         model_api_id=selected.api_id,
         prompt=prompt,
+        capability=decision.capability,
+        tier=selected.tier.value,
         app_settings=cfg,
     )
     verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
@@ -76,6 +78,8 @@ def answer_prompt(
                 provider=strong.provider.value,
                 model_api_id=strong.api_id,
                 prompt=prompt,
+                capability=decision.capability,
+                tier=strong.tier.value,
                 app_settings=cfg,
             )
             # Verdict-only re-evaluation: the returned verdict must belong

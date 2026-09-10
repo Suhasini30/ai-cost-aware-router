@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     execution_timeout_s: float = Field(default=30.0, gt=0.0)
     execution_max_tokens: int = Field(default=1024, gt=0)
 
+    # Phase 7 reliability: same-provider retries + capable-provider
+    # failover inside the execution service. Transport errors only —
+    # never answer content (quality stays Phase 6's job).
+    reliability_max_retries: int = Field(default=2, ge=0)
+    reliability_backoff_base_s: float = Field(default=0.5, ge=0.0)
+
     # Phase 6 quality judge: FIXED strongest model (accuracy first),
     # like the classifier. quality_pass_threshold is ANSWER quality and
     # must never be confused with confidence_threshold (classification).

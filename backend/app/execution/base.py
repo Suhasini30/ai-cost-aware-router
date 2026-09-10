@@ -34,6 +34,19 @@ class ExecutionResult(BaseModel):
     input_tokens: int | None = None
     output_tokens: int | None = None
     total_tokens: int | None = None
+    # Phase 7 reliability metadata (defaults = direct success, no retry).
+    retry_count: int = 0
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+
+
+class ProviderUnavailableError(Exception):
+    """All compatible providers failed; carries the attempt history."""
+
+    def __init__(self, message: str, attempts: int, providers_tried: list[str]):
+        super().__init__(message)
+        self.attempts = attempts
+        self.providers_tried = providers_tried
 
 
 class ProviderAdapter(ABC):
