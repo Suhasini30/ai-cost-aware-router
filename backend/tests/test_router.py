@@ -1,3 +1,4 @@
+import json
 import os
 import importlib
 
@@ -7,6 +8,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings, settings
 from app.core.tracing import setup_tracing
+from app.execution.base import ExecutionResult
 from app.main import app
 from app.router.agent import (
     FALLBACK_MODEL,
@@ -136,11 +138,21 @@ def test_classify_live_path_mocked(monkeypatch):
         "reason": "Advanced math content.",
     }
 
-    def fake_call(prompt, cfg):
-        assert cfg.mistral_api_key == "test-mistral-key"  # provider key, not LangSmith
-        return payload, 123
+    def fake_execute(self, *, model_api_id, prompt, system_prompt=None, json_mode=False):
+        assert model_api_id == "mistral-large-latest"
+        assert json_mode is True
+        assert "JSON ONLY" in (system_prompt or "")
+        return ExecutionResult(
+            text=json.dumps(payload),
+            provider="mistral",
+            model_api_id=model_api_id,
+            latency_ms=5.0,
+            total_tokens=123,
+        )
 
-    monkeypatch.setattr("app.router.agent._call_mistral", fake_call)
+    monkeypatch.setattr(
+        "app.execution.mistral.MistralAdapter.execute", fake_execute
+    )
     cfg = _offline_settings(
         mistral_api_key="test-mistral-key", classifier_model="mistral-large-latest"
     )
@@ -151,8 +163,16 @@ def test_classify_live_path_mocked(monkeypatch):
 
 
 def test_classify_bad_live_payload_falls_back(monkeypatch):
+    def fake_execute(self, **kwargs):
+        return ExecutionResult(
+            text='{"nope": 1}',
+            provider="mistral",
+            model_api_id="mistral-large-latest",
+            latency_ms=5.0,
+        )
+
     monkeypatch.setattr(
-        "app.router.agent._call_mistral", lambda prompt, cfg: ({"nope": 1}, None)
+        "app.execution.mistral.MistralAdapter.execute", fake_execute
     )
     cfg = _offline_settings(mistral_api_key="k")
     decision, model_used, _, _ = classify_prompt("Summarize this", app_settings=cfg)
