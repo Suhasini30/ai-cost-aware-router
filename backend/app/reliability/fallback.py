@@ -29,13 +29,16 @@ def alternatives(
         return []
     required = CAPABILITY_TAGS.get(capability, set())
     want_tier = Tier(tier) if tier is not None else None
+    exclude_provider_normalized = (exclude_provider or "").lower()
     pool = []
     for m in list_models():
         if not m.enabled:
             continue
         if exclude_model is not None and m.id == exclude_model:
             continue
-        if exclude_provider is not None and m.provider.value == exclude_provider:
+        if exclude_provider_normalized and (
+            m.provider.value == exclude_provider_normalized
+        ):
             continue
         if want_tier is not None and m.tier != want_tier:
             continue

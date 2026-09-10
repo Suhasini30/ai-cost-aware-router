@@ -63,11 +63,17 @@ def execute(
     slept = 0
     tried: list[str] = []
     for index, (tgt_provider, tgt_model) in enumerate(targets):
-        adapter = get_adapter(tgt_provider, cfg)
-        if max_tokens is not None:
-            adapter.max_tokens = max_tokens
         if tgt_provider not in tried:
             tried.append(tgt_provider)
+        try:
+            adapter = get_adapter(tgt_provider, cfg)
+        except ValueError as exc:
+            # Missing key / unknown provider: skip to the next compatible
+            # target instead of aborting the whole failover loop.
+            errors.append(f"{type(exc).__name__}")
+            continue
+        if max_tokens is not None:
+            adapter.max_tokens = max_tokens
         attempt = 0
         while True:
             try:
@@ -94,6 +100,11 @@ def execute(
                     slept += 1
                     attempt += 1
                     continue
+                if not is_retryable(exc):
+                    # Deterministic client error (bad request, bad key,
+                    # unknown model): retrying or fanning out to other
+                    # providers cannot fix it — stop immediately.
+                    raise
                 break  # next target (or terminal raise below)
 
     raise ProviderUnavailableError(
