@@ -7,6 +7,7 @@ confidence (Correction #2 — never mix these fields).
 
 from pydantic import BaseModel, Field
 
+from app.cost.schemas import CostResult
 from app.models.registry import ModelSpec
 from app.router.schemas import RouteStage, RouterDecision
 
@@ -32,3 +33,4 @@ class AskResponse(BaseModel):
     tokens_used: int | None = None
     trace: list[RouteStage]
     fallback: bool
+    cost: CostResult
