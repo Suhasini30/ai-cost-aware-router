@@ -2,9 +2,12 @@
 
 SCOPE CONTRACT — Phase 6 owns evaluation AND the first escalation:
 - evaluate_answer() produces the quality verdict (passed/quality_score).
-- answer_prompt() performs AT MOST ONE quality-driven escalation
-  (escalate-once-then-accept, no loops) and reports it via
-  AskResponse.escalated + the stage trace.
+- answer_prompt() performs AT MOST ONE quality-driven escalation.
+  The escalated answer is evaluated again so the returned verdict
+  always belongs to the FINAL answer — but that second evaluation is
+  verdict-only and can never trigger another escalation (no loops).
+  Escalation is reported via AskResponse.escalated + an "escalation"
+  entry in the stage trace.
 - Phase 7 MUST NOT re-implement escalation: no second evaluate-and-
   escalate pass, no parallel escalation policy, no reinterpretation
   of the verdict. It consumes (answer, escalated, verdict) as final.
@@ -22,6 +25,7 @@ from app.execution.base import traceable
 from app.execution.service import execute
 from app.router.agent import classify_prompt
 from app.router.policy import route_decision, strongest_capable
+from app.router.schemas import RouteStage
 
 
 @traceable(name="router-ask-pipeline")
@@ -52,14 +56,40 @@ def answer_prompt(
     escalated = False
     final = first
     if not ok:
-        strong = strongest_capable(decision)
-        final = execute(
-            provider=strong.provider.value,
-            model_api_id=strong.api_id,
-            prompt=prompt,
-            app_settings=cfg,
-        )
-        selected, escalated = strong, True
+        try:
+            strong = strongest_capable(decision)
+        except ValueError:
+            strong = None
+        if strong is None:
+            # No strong model to escalate to: keep the initial answer
+            # instead of turning a quality failure into a 500.
+            trace.append(
+                RouteStage(
+                    stage="escalation",
+                    rule="no enabled strong model available; retained initial answer",
+                    kept=[],
+                )
+            )
+            fallback = True
+        else:
+            final = execute(
+                provider=strong.provider.value,
+                model_api_id=strong.api_id,
+                prompt=prompt,
+                app_settings=cfg,
+            )
+            # Verdict-only re-evaluation: the returned verdict must belong
+            # to the FINAL answer. Never escalates a second time.
+            verdict = evaluate_answer(prompt, final.text, app_settings=cfg)
+            trace.append(
+                RouteStage(
+                    stage="escalation",
+                    rule="initial answer failed quality threshold; "
+                    f"escalated to {strong.id}",
+                    kept=[strong.id],
+                )
+            )
+            selected, escalated = strong, True
 
     latency_ms = (time.perf_counter() - started) * 1000.0
     tokens = (classify_tokens or 0) + (final.total_tokens or 0)
