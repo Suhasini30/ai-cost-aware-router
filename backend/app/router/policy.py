@@ -8,7 +8,7 @@ Pure function over the static registry: no LLM calls, no prompt I/O.
 never be confused with answer quality (a Phase 6 concern).
 """
 
-from app.models.registry import ModelSpec, Tier, get_strong_model, list_models
+from app.models.registry import ModelSpec, Tier, list_models
 from app.router.agent import traceable
 from app.router.schemas import RouteStage, RouterDecision
 
@@ -30,6 +30,30 @@ def _cheapest(candidates: list[ModelSpec]) -> ModelSpec:
     return min(candidates, key=_cost_key)
 
 
+def _safe_fallback(
+    pool: list[ModelSpec], trace: list[RouteStage]
+) -> tuple[ModelSpec, list[RouteStage], bool]:
+    """Enabled-only safety net (never returns a disabled model).
+
+    Order: cheapest strong in the capable pool → cheapest enabled
+    strong globally → cheapest capable → cheapest enabled overall.
+    Raises ValueError only when the registry has no enabled models
+    at all (misconfiguration, not a routing outcome).
+    """
+    strong = [m for m in pool if m.tier == Tier.STRONG]
+    if strong:
+        return _cheapest(strong), trace, True
+    enabled = [m for m in list_models() if m.enabled]
+    strong_all = [m for m in enabled if m.tier == Tier.STRONG]
+    if strong_all:
+        return _cheapest(strong_all), trace, True
+    if pool:
+        return _cheapest(pool), trace, True
+    if enabled:
+        return _cheapest(enabled), trace, True
+    raise ValueError("No enabled models in registry")
+
+
 @traceable(name="router-policy")
 def route_decision(
     decision: RouterDecision,
@@ -38,8 +62,10 @@ def route_decision(
     """Select the cheapest capable model for a classification.
 
     Returns (selected_model, stage_trace, fallback_flag).
-    Never raises on empty candidate sets: degrades to the cheapest
-    strong model and flags `fallback=True`.
+    Never returns a disabled model. Degrades to the cheapest enabled
+    strong model and flags `fallback=True` when the pipeline empties.
+    Raises ValueError only when the registry has no enabled models
+    at all.
     """
     trace: list[RouteStage] = []
     candidates = [m for m in list_models() if m.enabled]
@@ -57,8 +83,7 @@ def route_decision(
         )
     )
     if not candidates:
-        selected = get_strong_model()
-        return selected, trace, True
+        return _safe_fallback([], trace)
 
     # 2-4. Tier gates: confidence escalation, complexity, then quality.
     # Quality=high OVERRIDES (replaces) the tier set instead of
@@ -117,14 +142,12 @@ def route_decision(
         )
     candidates = [m for m in candidates if m.tier in tier_allow]
 
-    # 5. Cheapest capable pick; empty → safe strong fallback.
+    # 5. Cheapest capable pick; empty → enabled-only safe fallback.
     if not candidates:
         capable = [
             m
             for m in list_models()
             if m.enabled and (required & set(m.capabilities))
         ]
-        strong = [m for m in capable if m.tier == Tier.STRONG]
-        selected = _cheapest(strong) if strong else get_strong_model()
-        return selected, trace, True
+        return _safe_fallback(capable, trace)
     return _cheapest(candidates), trace, False

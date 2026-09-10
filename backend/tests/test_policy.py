@@ -166,6 +166,57 @@ def test_empty_capability_match_falls_back_strong(monkeypatch):
     assert selected.tier == Tier.STRONG
 
 
+# --- Sourcery review: enabled-only fallback, honest no-raise contract ---
+
+
+def test_fallback_never_returns_disabled_model(monkeypatch):
+    """A disabled strong model must not be selected (finding: policy.py:61)."""
+    spec = registry_module.REGISTRY["gemini-strong"]
+    monkeypatch.setattr(spec, "enabled", False)
+    selected, _, fallback = route_decision(
+        _decision(
+            task_type="image",
+            complexity="high",
+            capability="image",
+            quality_required="high",
+            confidence=0.9,
+        )
+    )
+    assert fallback is True
+    assert selected.enabled is True
+    assert selected.id == "mistral-strong"  # cheapest *enabled* strong
+
+
+def test_fallback_without_any_strong_model(monkeypatch):
+    """No strong tier anywhere → cheapest enabled, no raise (policy.py:42)."""
+    fast_only = [
+        m
+        for m in registry_module.list_models()
+        if m.tier == Tier.FAST
+    ]
+    monkeypatch.setattr(
+        "app.router.policy.list_models", lambda provider=None: fast_only
+    )
+    selected, _, fallback = route_decision(
+        _decision(
+            task_type="image",
+            complexity="high",
+            capability="image",
+            quality_required="high",
+            confidence=0.9,
+        )
+    )
+    assert fallback is True
+    assert selected.id == "gemini-fast"  # cheapest enabled overall
+
+
+def test_empty_registry_raises_explicitly(monkeypatch):
+    """Zero enabled models is misconfiguration: ValueError, not a route."""
+    monkeypatch.setattr("app.router.policy.list_models", lambda provider=None: [])
+    with pytest.raises(ValueError, match="No enabled models"):
+        route_decision(_decision())
+
+
 # --- Correction #2 guard: confidence is classification-only ---
 
 
