@@ -19,6 +19,7 @@ SCOPE CONTRACT — Phase 6 owns evaluation AND the first escalation:
 import time
 
 from app.core.config import Settings, settings
+from app.cost.calculator import build_cost
 from app.eval.evaluator import evaluate_answer
 from app.eval.schemas import AskResponse
 from app.execution.base import traceable
@@ -56,6 +57,8 @@ def answer_prompt(
 
     ok = verdict.passed and verdict.quality_score >= cfg.quality_pass_threshold
     escalated = False
+    strong = None
+    initial_id = selected.id
     final = first
     if not ok:
         try:
@@ -97,6 +100,21 @@ def answer_prompt(
 
     latency_ms = (time.perf_counter() - started) * 1000.0
     tokens = (classify_tokens or 0) + (final.total_tokens or 0)
+    legs = [(initial_id, first.input_tokens, first.output_tokens)]
+    if escalated and strong is not None:
+        legs.append((strong.id, final.input_tokens, final.output_tokens))
+        baseline_model = strong
+    else:
+        try:
+            baseline_model = strongest_capable(decision)
+        except ValueError:
+            baseline_model = selected  # no stronger baseline exists
+    cost = build_cost(
+        legs,
+        baseline_model,
+        final.input_tokens,
+        final.output_tokens,
+    )
     return AskResponse(
         answer=final.text,
         selected_model=selected,
@@ -108,4 +126,5 @@ def answer_prompt(
         tokens_used=tokens,
         trace=trace,
         fallback=fallback,
+        cost=cost,
     )
