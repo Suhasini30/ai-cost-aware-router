@@ -34,3 +34,4 @@ class AskResponse(BaseModel):
     trace: list[RouteStage]
     fallback: bool
     cost: CostResult
+    transport_fallback: bool = False
