@@ -58,7 +58,6 @@ def answer_prompt(
     ok = verdict.passed and verdict.quality_score >= cfg.quality_pass_threshold
     escalated = False
     strong = None
-    initial_id = selected.id
     final = first
     if not ok:
         try:
@@ -100,9 +99,13 @@ def answer_prompt(
 
     latency_ms = (time.perf_counter() - started) * 1000.0
     tokens = (classify_tokens or 0) + (final.total_tokens or 0)
-    legs = [(initial_id, first.input_tokens, first.output_tokens)]
+    transport_fallback = bool(first.fallback_used) or bool(final.fallback_used)
+    # Cost legs use the ACTUAL answering model's api_id (Phase 7 failover
+    # may serve from a different provider than routed); the calculator
+    # resolves api_ids to registry prices, flagging unknown ones.
+    legs = [(first.model_api_id, first.input_tokens, first.output_tokens)]
     if escalated and strong is not None:
-        legs.append((strong.id, final.input_tokens, final.output_tokens))
+        legs.append((final.model_api_id, final.input_tokens, final.output_tokens))
         baseline_model = strong
     else:
         try:
@@ -127,4 +130,5 @@ def answer_prompt(
         trace=trace,
         fallback=fallback,
         cost=cost,
+        transport_fallback=transport_fallback,
     )

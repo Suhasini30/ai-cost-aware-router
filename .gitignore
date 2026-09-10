@@ -50,3 +50,6 @@ out/
 # Temporary files
 tmp/
 temp/
+
+# Benchmark reports (generated, Phase 9)
+backend/evaluation/results/
