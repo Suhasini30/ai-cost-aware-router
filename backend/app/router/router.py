@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException
 
 from app.core.config import settings
+from app.eval.schemas import AskRequest, AskResponse
 from app.router.agent import classify_prompt
+from app.router.pipeline import answer_prompt
 from app.router.policy import route_decision
 from app.router.schemas import (
     ClassifyRequest,
@@ -66,3 +68,19 @@ def route(req: RouteRequest) -> RouteResponse:
         trace=trace,
         fallback=fallback,
     )
+
+
+@router.post("/ask", response_model=AskResponse)
+def ask(req: AskRequest) -> AskResponse:
+    """Full pipeline: classify, route, execute, evaluate, escalate once.
+
+    NOTE: the prompt and the generated answer are transmitted to the
+    configured external providers, and calls are traced in LangSmith
+    when LANGCHAIN_API_KEY is set. Offline fallback paths transmit
+    nothing but cannot produce a live answer.
+    """
+    prompt = _validate_prompt(req.prompt)
+    try:
+        return answer_prompt(prompt)
+    except Exception as exc:  # never leak internals to the client
+        raise HTTPException(status_code=500, detail="ask pipeline failed") from exc

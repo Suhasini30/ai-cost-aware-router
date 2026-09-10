@@ -54,6 +54,30 @@ def _safe_fallback(
     raise ValueError("No enabled models in registry")
 
 
+def strongest_capable(decision: RouterDecision) -> ModelSpec:
+    """Cheapest enabled strong model matching the decision's capability.
+
+    Used for Phase 6 quality-driven escalation (and only there).
+    Falls back to the cheapest enabled strong globally; raises
+    ValueError only when no enabled strong model exists at all.
+    """
+    required = CAPABILITY_TAGS[decision.capability]
+    capable = [
+        m
+        for m in list_models()
+        if m.enabled and (required & set(m.capabilities))
+    ]
+    strong = [m for m in capable if m.tier == Tier.STRONG]
+    if strong:
+        return _cheapest(strong)
+    enabled_strong = [
+        m for m in list_models() if m.enabled and m.tier == Tier.STRONG
+    ]
+    if enabled_strong:
+        return _cheapest(enabled_strong)
+    raise ValueError("No enabled strong model for escalation")
+
+
 @traceable(name="router-policy")
 def route_decision(
     decision: RouterDecision,
