@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     classifier_timeout_s: float = Field(default=20.0, gt=0.0)
     max_prompt_chars: int = Field(default=4000, gt=0)
 
+    # Phase 5 execution service: generic inference calls (answer flow).
+    # Separate from the classifier's budget on purpose.
+    execution_timeout_s: float = Field(default=30.0, gt=0.0)
+    execution_max_tokens: int = Field(default=1024, gt=0)
+
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",

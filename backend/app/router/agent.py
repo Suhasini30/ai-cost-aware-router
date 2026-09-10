@@ -4,33 +4,21 @@ Uses the FIXED strongest classifier model from settings (accuracy first).
 Cost-aware model selection is Phase 4 and must not leak in here:
 this module never imports the registry selection helpers.
 
+Provider calls go through the execution service (Phase 5): this module
+contains no provider-specific code.
+
 Failure policy: any live-call problem (no key, network error, bad JSON,
 schema validation error) degrades to the deterministic keyword fallback
 so the endpoint never 500s on classifier issues.
 """
 
-import json
 import re
 import time
-from typing import Any, Callable
-
-import httpx
 
 from app.core.config import Settings, settings
+from app.execution.base import traceable
+from app.execution.service import execute_json
 from app.router.schemas import RouterDecision
-
-try:  # langsmith is optional at runtime; tests/dev work without it
-    from langsmith import traceable
-except ImportError:  # pragma: no cover - exercised when langsmith missing
-
-    def traceable(*args: Any, **kwargs: Any) -> Callable:
-        if len(args) == 1 and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def wrap(fn: Callable) -> Callable:
-            return fn
-
-        return wrap
 
 
 FALLBACK_MODEL = "fallback"
@@ -104,77 +92,30 @@ def fallback_classify(prompt: str, threshold: float = 0.75) -> RouterDecision:
     )
 
 
-def _call_mistral(prompt: str, app_settings: Settings) -> tuple[dict, int | None]:
-    """Call the fixed Mistral classifier; returns (parsed JSON, tokens|None)."""
-    with httpx.Client(timeout=app_settings.classifier_timeout_s) as client:
-        resp = client.post(
-            "https://api.mistral.ai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {app_settings.mistral_api_key}"},
-            json={
-                "model": app_settings.classifier_model,
-                "messages": [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-                "temperature": 0,
-                "max_tokens": 300,
-                "response_format": {"type": "json_object"},
-            },
-        )
-        resp.raise_for_status()
-        body = resp.json()
-    content = body["choices"][0]["message"]["content"]
-    usage = (body.get("usage") or {}).get("total_tokens")
-    return json.loads(content), usage
-
-
-def _call_gemini(prompt: str, app_settings: Settings) -> tuple[dict, int | None]:
-    """Call the fixed Gemini classifier; returns (parsed JSON, tokens|None)."""
-    model = app_settings.classifier_model
-    with httpx.Client(timeout=app_settings.classifier_timeout_s) as client:
-        resp = client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-            headers={"x-goog-api-key": app_settings.gemini_api_key or ""},
-            json={
-                "system_instruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0,
-                    "maxOutputTokens": 300,
-                    "responseMimeType": "application/json",
-                },
-            },
-        )
-        resp.raise_for_status()
-        body = resp.json()
-    text = body["candidates"][0]["content"]["parts"][0]["text"]
-    tokens = (body.get("usageMetadata") or {}).get("totalTokenCount")
-    return json.loads(text), tokens
-
-
 @traceable(name="router-classify")
 def classify_prompt(
     prompt: str,
     app_settings: Settings | None = None,
 ) -> tuple[RouterDecision, str, float, int | None]:
-    """Classify a prompt.
+    """Classify a prompt via the execution service.
 
     Returns (decision, model_used, latency_ms, tokens_used|None).
     `model_used` is the fixed classifier model, or "fallback".
     """
     cfg = app_settings or settings
     started = time.perf_counter()
-    provider = (cfg.classifier_provider or "").lower()
 
     try:
-        if provider == "mistral" and cfg.mistral_api_key:
-            payload, tokens = _call_mistral(prompt, cfg)
-        elif provider == "gemini" and cfg.gemini_api_key:
-            payload, tokens = _call_gemini(prompt, cfg)
-        else:
-            raise RuntimeError("no provider key for classifier")
+        payload, result = execute_json(
+            provider=cfg.classifier_provider or "",
+            model_api_id=cfg.classifier_model,
+            prompt=prompt,
+            system_prompt=_SYSTEM_PROMPT,
+            max_tokens=300,  # classification budget (not the execution default)
+            app_settings=cfg,
+        )
         decision = RouterDecision(**payload)
-        model_used = cfg.classifier_model
+        model_used, tokens = cfg.classifier_model, result.total_tokens
     except Exception:
         decision = fallback_classify(prompt, cfg.confidence_threshold)
         model_used, tokens = FALLBACK_MODEL, None
