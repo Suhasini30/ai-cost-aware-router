@@ -35,3 +35,7 @@ class AskResponse(BaseModel):
     fallback: bool
     cost: CostResult
     transport_fallback: bool = False
+    # Phase 10: verified Clerk user id. Observable only — MongoDB (Phase 11)
+    # owns persistence. Always set on endpoint success (the auth dependency
+    # guarantees it); None only on programmatically built responses.
+    user_id: str | None = None

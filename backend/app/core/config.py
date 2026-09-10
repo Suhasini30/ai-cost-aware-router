@@ -53,6 +53,14 @@ class Settings(BaseSettings):
     judge_provider: str = "mistral"
     quality_pass_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
 
+    # Phase 10 Clerk auth: public, non-secret endpoint config. The .env
+    # already carries Clerk secret keys, but those alone are NOT enough —
+    # the JWKS URL and issuer below must be configured by the operator.
+    # Empty values fail closed (every token → 401), never open.
+    clerk_jwks_url: str = ""
+    clerk_issuer: str = ""
+    clerk_jwks_cache_ttl_s: float = Field(default=600.0, gt=0.0)
+
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
