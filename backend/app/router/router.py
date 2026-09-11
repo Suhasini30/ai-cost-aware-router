@@ -93,7 +93,7 @@ def ask(
     """
     prompt = _validate_prompt(req.prompt)
     try:
-        return answer_prompt(prompt)
+        response = answer_prompt(prompt)
     except ProviderUnavailableError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # never leak internals to the client

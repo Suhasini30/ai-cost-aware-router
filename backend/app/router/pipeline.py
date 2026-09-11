@@ -99,6 +99,7 @@ def answer_prompt(
 
     latency_ms = (time.perf_counter() - started) * 1000.0
     tokens = (classify_tokens or 0) + (final.total_tokens or 0)
+    transport_fallback = bool(first.fallback_used) or bool(final.fallback_used)
     # Cost legs use the ACTUAL answering model's api_id (Phase 7 failover
     # may serve from a different provider than routed); the calculator
     # resolves api_ids to registry prices, flagging unknown ones.
@@ -129,4 +130,5 @@ def answer_prompt(
         trace=trace,
         fallback=fallback,
         cost=cost,
+        transport_fallback=transport_fallback,
     )
