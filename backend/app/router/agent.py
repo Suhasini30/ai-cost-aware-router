@@ -12,6 +12,7 @@ schema validation error) degrades to the deterministic keyword fallback
 so the endpoint never 500s on classifier issues.
 """
 
+import logging
 import re
 import time
 
@@ -19,6 +20,8 @@ from app.core.config import Settings, settings
 from app.execution.base import traceable
 from app.execution.service import execute_json
 from app.router.schemas import RouterDecision
+
+log = logging.getLogger("app.router")
 
 
 FALLBACK_MODEL = "fallback"
@@ -136,7 +139,10 @@ def classify_prompt(
         )
         decision = RouterDecision(**payload)
         model_used, tokens = cfg.classifier_model, result.total_tokens
-    except Exception:
+    except Exception as exc:
+        # Live path failed (key, network, bad JSON, schema): keyword
+        # fallback takes over. Logged so "which path ran?" is answerable.
+        log.info("classifier fallback: %s", type(exc).__name__)
         decision = fallback_classify(prompt, cfg.confidence_threshold)
         model_used, tokens = FALLBACK_MODEL, None
 

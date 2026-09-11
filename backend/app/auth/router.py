@@ -8,6 +8,8 @@ POST /auth/logout clears the cookie (client discards the access token).
 No password storage anywhere: Clerk remains the identity source.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
@@ -20,6 +22,8 @@ from app.core.security import (
     create_refresh_token,
     verify_refresh_token,
 )
+
+log = logging.getLogger("app.auth")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 _bearer = HTTPBearer(auto_error=False)
@@ -44,6 +48,7 @@ def _creds(
         or credentials.scheme.lower() != "bearer"
         or not (credentials.credentials or "").strip()
     ):
+        log.warning("auth failed: missing credentials")
         raise HTTPException(status_code=401, detail="Unauthorized")
     return credentials.credentials
 
@@ -55,11 +60,13 @@ def exchange(token: str = Depends(_creds), response: Response = None) -> TokenPa
     try:
         user_id = verify_clerk_token(token, cfg)
     except AuthError as exc:
+        log.warning("exchange failed: %s", exc)
         raise HTTPException(status_code=401, detail="Unauthorized") from exc
     try:
         access = create_access_token(user_id, cfg)
         refresh, _jti = create_refresh_token(user_id, cfg)
     except TokenError as exc:
+        log.exception("exchange mint failed")
         raise HTTPException(status_code=500, detail="Token service unavailable") from exc
     max_age = cfg.jwt_refresh_days * 24 * 3600
     response.set_cookie(
@@ -74,15 +81,18 @@ def refresh(request: Request, response: Response) -> TokenPair:
     cfg = config_module.settings
     raw = request.cookies.get(cfg.refresh_cookie_name)
     if not raw:
+        log.warning("refresh failed: missing cookie")
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         payload = verify_refresh_token(raw, cfg)
     except TokenError as exc:
+        log.warning("refresh failed: %s", exc)
         raise HTTPException(status_code=401, detail="Unauthorized") from exc
     try:
         access = create_access_token(payload["sub"], cfg)
         rotated, _jti = create_refresh_token(payload["sub"], cfg)
     except TokenError as exc:
+        log.exception("refresh mint failed")
         raise HTTPException(status_code=500, detail="Token service unavailable") from exc
     max_age = cfg.jwt_refresh_days * 24 * 3600
     response.set_cookie(

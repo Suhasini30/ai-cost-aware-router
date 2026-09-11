@@ -1,11 +1,15 @@
 """Provider factory — the only place that maps names to adapters."""
 
+import logging
+
 from app.core.config import Settings
 from app.execution.base import ProviderAdapter
 from app.execution.gemini import GeminiAdapter
 from app.execution.groq import GroqAdapter
 from app.execution.mistral import MistralAdapter
 from app.execution.xai import XaiAdapter
+
+log = logging.getLogger("app.execution")
 
 
 def get_adapter(provider: str, app_settings: Settings) -> ProviderAdapter:
@@ -30,7 +34,9 @@ def get_adapter(provider: str, app_settings: Settings) -> ProviderAdapter:
         api_key = app_settings.groq_api_key
         cls = GroqAdapter
     else:
+        log.warning("adapter resolve failed: unknown provider %r", provider)
         raise ValueError(f"Unknown provider: {provider!r}")
     if not api_key:
+        log.warning("adapter resolve failed: missing API key for %r", key)
         raise ValueError(f"Missing API key for provider {key!r}")
     return cls(api_key=api_key, timeout_s=timeout_s, max_tokens=max_tokens)
