@@ -8,6 +8,7 @@ this layer reacts to transport errors only, never to answer content.
 """
 
 import json
+import logging
 import time
 from collections.abc import Callable
 
@@ -20,6 +21,8 @@ from app.execution.base import (
 from app.execution.factory import get_adapter
 from app.reliability.fallback import alternatives
 from app.reliability.retry import backoff_delays, is_retryable
+
+log = logging.getLogger("app.execution")
 
 
 @traceable(name="execution-run")
@@ -92,10 +95,19 @@ def execute(
                         f"{provider} failed ({errors[0]}); "
                         f"fell back to {tgt_provider}/{tgt_model}"
                     )
+                    log.warning(
+                        "provider failover %s -> %s (%s)",
+                        provider, tgt_provider, errors[0],
+                    )
                 return result
             except Exception as exc:  # noqa: BLE001 — classified below
                 errors.append(f"{type(exc).__name__}")
                 if is_retryable(exc) and attempt < budget:
+                    log.warning(
+                        "retry %s/%s attempt %d after %s",
+                        tgt_provider, tgt_model, attempt + 1,
+                        type(exc).__name__,
+                    )
                     sleep_fn(delays[attempt])
                     slept += 1
                     attempt += 1

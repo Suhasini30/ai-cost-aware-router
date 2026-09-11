@@ -16,6 +16,7 @@ SCOPE CONTRACT — Phase 6 owns evaluation AND the first escalation:
   lives inside this module, not in the caller).
 """
 
+import logging
 import time
 
 from app.core.config import Settings, settings
@@ -27,6 +28,8 @@ from app.execution.service import execute
 from app.router.agent import classify_prompt
 from app.router.policy import route_decision, strongest_capable
 from app.router.schemas import RouteStage
+
+log = logging.getLogger("app.pipeline")
 
 
 @traceable(name="router-ask-pipeline")
@@ -117,6 +120,10 @@ def answer_prompt(
         baseline_model,
         final.input_tokens,
         final.output_tokens,
+    )
+    log.info(
+        "ask model=%s escalated=%s quality=%.2f actual_cost=%.6f",
+        selected.id, escalated, verdict.quality_score, cost.actual_cost,
     )
     return AskResponse(
         answer=final.text,
