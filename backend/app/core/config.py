@@ -62,8 +62,15 @@ class Settings(BaseSettings):
     clerk_issuer: str = ""
     clerk_jwks_cache_ttl_s: float = Field(default=600.0, gt=0.0)
 
-    # Browser dashboard support: origin allowed by CORS (dev default).
-    frontend_origin: str = "http://localhost:3000"
+    # Browser dashboard support: origins allowed by CORS (dev defaults
+    # cover localhost/127.0.0.1 on the usual Next.js ports — the UI may
+    # run on :3000 or :3001, and both spellings of localhost occur).
+    frontend_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
 
     # Observability: stdout log verbosity (LOG_LEVEL env overrides).
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
@@ -76,6 +83,16 @@ class Settings(BaseSettings):
     jwt_access_minutes: int = Field(default=15, gt=0)
     jwt_refresh_days: int = Field(default=7, gt=0)
     refresh_cookie_name: str = "rt"
+
+    # Phase 11 MongoDB & Persistence Settings (names match backend/.env).
+    mongodb_uri: str = "mongodb://localhost:27017"
+    mongodb_database: str = "cost_aware_router"
+
+    # Privacy Controls for Query Persistence
+    privacy_store_prompts: bool = True
+    privacy_store_answers: bool = True
+    privacy_store_execution_trace: bool = True
+    privacy_anonymize_user: bool = False
 
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),
