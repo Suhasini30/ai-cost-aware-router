@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -60,6 +61,12 @@ class Settings(BaseSettings):
     clerk_jwks_url: str = ""
     clerk_issuer: str = ""
     clerk_jwks_cache_ttl_s: float = Field(default=600.0, gt=0.0)
+
+    # Browser dashboard support: origin allowed by CORS (dev default).
+    frontend_origin: str = "http://localhost:3000"
+
+    # Observability: stdout log verbosity (LOG_LEVEL env overrides).
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
     # Backend token sessions: HS256 self-minted access + refresh tokens.
     # jwt_secret_key is REQUIRED (fail closed when empty) and must be

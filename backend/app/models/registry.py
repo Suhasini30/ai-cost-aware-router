@@ -71,24 +71,24 @@ REGISTRY: dict[str, ModelSpec] = {
     "gemini-fast": ModelSpec(
         id="gemini-fast",
         provider=Provider.GEMINI,
-        api_id="gemini-1.5-flash",
+        api_id="gemini-3.6-flash",
         display_name="Gemini Fast",
         tier=Tier.FAST,
-        input_cost_per_1k=0.000075,  # ~$0.075 / 1M
-        output_cost_per_1k=0.0003,  # ~$0.30 / 1M
-        context_window=1048576,
+        input_cost_per_1k=0.00075,  # ~$0.75 / 1M (official docs, 2026-09)
+        output_cost_per_1k=0.00375,  # ~$3.75 / 1M
+        context_window=1000000,
         max_output_tokens=8192,
         capabilities=["chat", "summarization", "classification", "long-context"],
     ),
     "gemini-strong": ModelSpec(
         id="gemini-strong",
         provider=Provider.GEMINI,
-        api_id="gemini-1.5-pro",
+        api_id="gemini-3.1-pro-preview",
         display_name="Gemini Strong",
         tier=Tier.STRONG,
-        input_cost_per_1k=0.00125,  # ~$1.25 / 1M
-        output_cost_per_1k=0.005,  # ~$5.00 / 1M
-        context_window=1048576,
+        input_cost_per_1k=0.002,  # ~$2.00 / 1M (official docs, <=200k tier)
+        output_cost_per_1k=0.012,  # ~$12.00 / 1M
+        context_window=1000000,
         max_output_tokens=8192,
         capabilities=["chat", "reasoning", "code", "vision", "long-context"],
     ),

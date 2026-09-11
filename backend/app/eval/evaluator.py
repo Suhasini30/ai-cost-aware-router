@@ -5,10 +5,14 @@ failure degrades to conservative `passed=False` (routes into the
 single escalation instead of 500ing).
 """
 
+import logging
+
 from app.core.config import Settings, settings
 from app.eval.schemas import QualityVerdict
 from app.execution.base import traceable
 from app.execution.service import execute_json
+
+log = logging.getLogger("app.eval")
 
 _JUDGE_PROMPT = """You grade an AI answer for a user prompt.
 Reply with JSON ONLY, exactly these keys:
@@ -37,7 +41,12 @@ def evaluate_answer(
             app_settings=cfg,
         )
         return QualityVerdict(**payload)
-    except Exception:
+    except Exception as exc:
+        # Provider/model only — never prompt or answer text.
+        log.warning(
+            "judge failed (%s/%s): %s; failing safe toward escalation",
+            cfg.judge_provider, cfg.judge_model, type(exc).__name__,
+        )
         return QualityVerdict(
             passed=False,
             quality_score=0.0,
