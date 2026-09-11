@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.auth.dependencies import get_current_user_id
 from app.core.config import settings
 from app.eval.schemas import AskRequest, AskResponse
 from app.execution.base import ProviderUnavailableError
@@ -76,8 +77,14 @@ def route(req: RouteRequest) -> RouteResponse:
 
 
 @router.post("/ask", response_model=AskResponse)
-def ask(req: AskRequest) -> AskResponse:
+def ask(
+    req: AskRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> AskResponse:
     """Full pipeline: classify, route, execute, evaluate, escalate once.
+
+    Requires a valid Clerk JWT (401 otherwise). The user_id is exposed
+    on the response for downstream use; nothing is persisted here.
 
     NOTE: the prompt and the generated answer are transmitted to the
     configured external providers, and calls are traced in LangSmith
@@ -91,3 +98,5 @@ def ask(req: AskRequest) -> AskResponse:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # never leak internals to the client
         raise HTTPException(status_code=500, detail="ask pipeline failed") from exc
+    response.user_id = user_id
+    return response

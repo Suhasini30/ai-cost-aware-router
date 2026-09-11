@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 
+from app.auth.router import router as auth_router
 from app.core.config import settings
 from app.core.tracing import setup_tracing
 from app.models.registry import get_model, list_models
@@ -8,6 +9,7 @@ from app.router.router import router as router_router
 setup_tracing(settings)
 
 app = FastAPI(title="Cost-Aware Multi-Model Router API")
+app.include_router(auth_router)
 app.include_router(router_router)
 
         
