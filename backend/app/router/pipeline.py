@@ -129,14 +129,9 @@ def answer_prompt(
     latency_ms = (time.perf_counter() - started) * 1000.0
     tokens = (classify_tokens or 0) + (final.total_tokens or 0)
     transport_fallback = bool(first.fallback_used) or bool(final.fallback_used)
-
-    # Transport attempts across answer legs (failover-aware). The model
-    # that REALLY answered may differ from the routed one — resolve it
-    # for honest reporting, falling back to the routed model only when
-    # the api_id is unresolvable.
-    calls = first.attempts + (final.attempts if escalated else 0)
-    actual_model = resolve_model(final.model_api_id) or selected
-
+    # Cost legs use the ACTUAL answering model's api_id (Phase 7 failover
+    # may serve from a different provider than routed); the calculator
+    # resolves api_ids to registry prices, flagging unknown ones.
     legs = [(first.model_api_id, first.input_tokens, first.output_tokens)]
     if escalated and strong is not None:
         legs.append((final.model_api_id, final.input_tokens, final.output_tokens))
@@ -153,19 +148,10 @@ def answer_prompt(
         final.input_tokens,
         final.output_tokens,
     )
-
-    total_llm_api_calls = routing_api_calls + model_api_calls
-
     log.info(
-        "ask model=%s actual=%s escalated=%s quality_score=%s calls=%d actual_cost=%.6f",
-        selected.id,
-        actual_model.id,
-        escalated,
-        verdict.quality_score,
-        calls,
-        cost.actual_cost,
+        "ask model=%s escalated=%s quality=%.2f actual_cost=%.6f",
+        selected.id, escalated, verdict.quality_score, cost.actual_cost,
     )
-
     return AskResponse(
         answer=final.text,
         selected_model=selected,
@@ -180,11 +166,5 @@ def answer_prompt(
         fallback=fallback,
         cost=cost,
         transport_fallback=transport_fallback,
-        routing_api_calls=routing_api_calls,
-        model_api_calls=model_api_calls,
-        total_llm_api_calls=total_llm_api_calls,
-        baseline_model=baseline_model.id,
-        calls=calls,
-        judge_calls=judge_calls,
     )
 

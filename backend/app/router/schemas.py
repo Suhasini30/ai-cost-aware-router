@@ -27,6 +27,12 @@ class RouterDecision(BaseModel):
     quality_required: QualityRequired
     confidence: float = Field(ge=0.0, le=1.0)
     reason: str
+    needs_verification: bool = False
+    is_rule_classified: bool = False
+
+    @property
+    def routing_confidence(self) -> float:
+        return self.confidence
 
 
 class ClassifyRequest(BaseModel):
@@ -38,6 +44,7 @@ class ClassifyResponse(BaseModel):
     model_used: str
     latency_ms: float
     tokens_used: int | None = None
+    routing_api_calls: int = 0
 
 
 class RouteStage(BaseModel):
@@ -60,3 +67,4 @@ class RouteResponse(BaseModel):
     tokens_used: int | None = None
     trace: list[RouteStage]
     fallback: bool
+    routing_api_calls: int = 0

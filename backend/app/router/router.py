@@ -39,7 +39,12 @@ def _validate_prompt(prompt: str | None) -> str:
 def classify(req: ClassifyRequest) -> ClassifyResponse:
     prompt = _validate_prompt(req.prompt)
     try:
-        decision, model_used, latency_ms, tokens = classify_prompt(prompt)
+        res = classify_prompt(prompt)
+        if len(res) == 5:
+            decision, model_used, latency_ms, tokens, routing_calls = res
+        else:
+            decision, model_used, latency_ms, tokens = res[:4]
+            routing_calls = 0 if model_used in ("rules/local", "fallback") else 1
     except ProviderUnavailableError as exc:
         log.warning("classify 502: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -51,6 +56,7 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
         model_used=model_used,
         latency_ms=latency_ms,
         tokens_used=tokens,
+        routing_api_calls=routing_calls,
     )
 
 
@@ -64,7 +70,12 @@ def route(req: RouteRequest) -> RouteResponse:
     """
     prompt = _validate_prompt(req.prompt)
     try:
-        decision, model_used, latency_ms, tokens = classify_prompt(prompt)
+        res = classify_prompt(prompt)
+        if len(res) == 5:
+            decision, model_used, latency_ms, tokens, routing_calls = res
+        else:
+            decision, model_used, latency_ms, tokens = res[:4]
+            routing_calls = 0 if model_used in ("rules/local", "fallback") else 1
         selected, trace, fallback = route_decision(
             decision, threshold=settings.confidence_threshold
         )
@@ -82,6 +93,7 @@ def route(req: RouteRequest) -> RouteResponse:
         tokens_used=tokens,
         trace=trace,
         fallback=fallback,
+        routing_api_calls=routing_calls,
     )
 
 

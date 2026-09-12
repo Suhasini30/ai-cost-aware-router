@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 class Provider(str, Enum):
     MISTRAL = "mistral"
     GEMINI = "gemini"
+    GROQ = "groq"
 
 
 class Tier(str, Enum):
@@ -74,23 +75,47 @@ REGISTRY: dict[str, ModelSpec] = {
         api_id="gemini-3.6-flash",
         display_name="Gemini Fast",
         tier=Tier.FAST,
-        input_cost_per_1k=0.00075,  # ~$0.75 / 1M (official docs, 2026-09)
+        input_cost_per_1k=0.00075,  # ~$0.75 / 1M
         output_cost_per_1k=0.00375,  # ~$3.75 / 1M
-        context_window=1000000,
+        context_window=1048576,
         max_output_tokens=8192,
         capabilities=["chat", "summarization", "classification", "long-context"],
     ),
     "gemini-strong": ModelSpec(
         id="gemini-strong",
         provider=Provider.GEMINI,
-        api_id="gemini-3.1-pro-preview",
+        api_id="gemini-3.6-flash",
         display_name="Gemini Strong",
         tier=Tier.STRONG,
-        input_cost_per_1k=0.002,  # ~$2.00 / 1M (official docs, <=200k tier)
+        input_cost_per_1k=0.002,  # ~$2.00 / 1M
         output_cost_per_1k=0.012,  # ~$12.00 / 1M
-        context_window=1000000,
+        context_window=1048576,
         max_output_tokens=8192,
         capabilities=["chat", "reasoning", "code", "vision", "long-context"],
+    ),
+    "groq-fast": ModelSpec(
+        id="groq-fast",
+        provider=Provider.GROQ,
+        api_id="openai/gpt-oss-20b",
+        display_name="Groq Fast",
+        tier=Tier.FAST,
+        input_cost_per_1k=0.0002,  # ~$0.20 / 1M
+        output_cost_per_1k=0.0003,  # ~$0.30 / 1M
+        context_window=128000,
+        max_output_tokens=8192,
+        capabilities=["chat", "summarization", "classification", "code-assist"],
+    ),
+    "groq-strong": ModelSpec(
+        id="groq-strong",
+        provider=Provider.GROQ,
+        api_id="qwen/qwen3.6-27b",
+        display_name="Groq Strong",
+        tier=Tier.STRONG,
+        input_cost_per_1k=0.0025,  # ~$2.50 / 1M
+        output_cost_per_1k=0.0065,  # ~$6.50 / 1M
+        context_window=128000,
+        max_output_tokens=8192,
+        capabilities=["chat", "reasoning", "code", "multilingual", "long-context"],
     ),
 }
 

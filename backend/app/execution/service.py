@@ -29,6 +29,8 @@ from app.reliability.retry import (
 
 log = logging.getLogger("app.execution")
 
+log = logging.getLogger("app.execution")
+
 
 @traceable(name="execution-run")
 def execute(
@@ -123,6 +125,20 @@ def execute(
                     ),
                     tgt_provider, tgt_model,
                 )
+                result.retry_count = slept
+                if index > 0:
+                    result.fallback_used = True
+                    result.provider = tgt_provider
+                    result.model_api_id = tgt_model
+                    result.fallback_reason = (
+                        f"{provider} failed ({errors[0]}); "
+                        f"fell back to {tgt_provider}/{tgt_model}"
+                    )
+                    log.warning(
+                        "provider failover %s -> %s (%s)",
+                        provider, tgt_provider, errors[0],
+                    )
+                return result
             except Exception as exc:  # noqa: BLE001 — classified below
                 errors.append(f"{type(exc).__name__}")
                 if status_of(exc) == 429:
