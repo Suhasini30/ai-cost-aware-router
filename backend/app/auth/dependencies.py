@@ -1,4 +1,4 @@
-"""Auth dependencies (Phase 10 + backend token sessions).
+"""Auth dependencies (Phase 10)."""
 
 Two accepted credential kinds, dispatched on the unverified issuer:
 - backend self-minted tokens (iss "cost-router") verify locally;
@@ -14,8 +14,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth.clerk import AuthError, verify_clerk_token
 from app.core import config as config_module
-from app.core.security import ISSUER as LOCAL_ISSUER
-from app.core.security import TokenError, verify_access_token
 
 log = logging.getLogger("app.auth")
 _bearer = HTTPBearer(auto_error=False)
@@ -25,7 +23,7 @@ def get_current_user_id(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> str:
-    """Return the verified user id from either credential kind, or 401."""
+    """Return the verified Clerk user id, or 401 (fail closed)."""
     if (
         credentials is None
         or credentials.scheme.lower() != "bearer"
