@@ -20,9 +20,13 @@ _JUDGE_PROMPT = """You grade an AI answer for a user prompt.
 Reply with JSON ONLY, exactly these keys:
 {"passed": true|false,
  "quality_score": <0.0-1.0>,
- "reason": "<one short sentence>"}
+ "reason": "<one short sentence>",
+ "issues": ["<concrete problem 1>", "<problem 2, if any>"],
+ "improvement_instructions": "<what the next model should do differently, or null>"}
 Grade on relevance, factual accuracy, and completeness. Pass answers
-that genuinely help; fail refusals, off-topic text, or empty answers."""
+that genuinely help; fail refusals, off-topic text, or empty answers.
+The issues/improvement fields may be empty/null — they are advisory,
+never load-bearing: missing keys default safely downstream."""
 
 
 def should_evaluate(decision: RouterDecision | None, answer: str,

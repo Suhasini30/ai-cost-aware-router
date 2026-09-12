@@ -41,9 +41,13 @@ def answer_prompt(
     cfg = app_settings or settings
     started = time.perf_counter()
 
-    decision, classifier_used, _, classify_tokens = classify_prompt(
-        prompt, app_settings=cfg
-    )
+    res = classify_prompt(prompt, app_settings=cfg)
+    # Agent may return 4- or 5-tuples depending on version (routing_api_calls
+    # was added later); accept both so mixed-version trees keep working.
+    if len(res) == 5:
+        decision, classifier_used, _, classify_tokens, _ = res
+    else:
+        decision, classifier_used, _, classify_tokens = res[:4]
     selected, trace, fallback = route_decision(
         decision, threshold=cfg.confidence_threshold
     )
@@ -58,10 +62,18 @@ def answer_prompt(
     )
     verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
 
-    ok = verdict.passed and verdict.quality_score >= cfg.quality_pass_threshold
+    ok = verdict.passed and (
+        verdict.quality_score is None or verdict.quality_score >= cfg.quality_pass_threshold
+    )
     escalated = False
     strong = None
     final = first
+    # Rejection transparency: preserve the initial verdict/model BEFORE any
+    # overwrite below. Populated into the response only when the initial
+    # answer was rejected (escalation) or retained without a strong model.
+    initial_verdict = verdict
+    initial_model_id = selected.id
+    initial_reason = None
     if not ok:
         try:
             strong = strongest_capable(decision)
@@ -78,6 +90,7 @@ def answer_prompt(
                 )
             )
             fallback = True
+            initial_reason = "no_strong_available"
         else:
             final = execute(
                 provider=strong.provider.value,
@@ -89,6 +102,7 @@ def answer_prompt(
             )
             # Verdict-only re-evaluation: the returned verdict must belong
             # to the FINAL answer. Never escalates a second time.
+            # (initial_verdict above preserves the rejected one.)
             verdict = evaluate_answer(prompt, final.text, app_settings=cfg)
             trace.append(
                 RouteStage(
@@ -99,6 +113,7 @@ def answer_prompt(
                 )
             )
             selected, escalated = strong, True
+            initial_reason = "quality_gate_failed"
 
     latency_ms = (time.perf_counter() - started) * 1000.0
     tokens = (classify_tokens or 0) + (final.total_tokens or 0)
@@ -138,4 +153,7 @@ def answer_prompt(
         fallback=fallback,
         cost=cost,
         transport_fallback=transport_fallback,
+        initial_model=initial_model_id if initial_reason else None,
+        initial_verdict=initial_verdict if initial_reason else None,
+        escalation_reason=initial_reason,
     )
