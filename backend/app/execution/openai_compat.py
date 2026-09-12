@@ -1,4 +1,4 @@
-"""Shared base for OpenAI-compatible chat APIs (xAI, Groq)."""
+"""Shared base for OpenAI-compatible chat APIs (currently Groq)."""
 
 import time
 

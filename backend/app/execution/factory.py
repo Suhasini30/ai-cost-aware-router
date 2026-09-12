@@ -7,7 +7,6 @@ from app.execution.base import ProviderAdapter
 from app.execution.gemini import GeminiAdapter
 from app.execution.groq import GroqAdapter
 from app.execution.mistral import MistralAdapter
-from app.execution.xai import XaiAdapter
 
 log = logging.getLogger("app.execution")
 
@@ -27,9 +26,6 @@ def get_adapter(provider: str, app_settings: Settings) -> ProviderAdapter:
     elif key == "gemini":
         api_key = app_settings.gemini_api_key
         cls = GeminiAdapter
-    elif key == "xai":
-        api_key = app_settings.xai_api_key
-        cls = XaiAdapter
     elif key == "groq":
         api_key = app_settings.groq_api_key
         cls = GroqAdapter

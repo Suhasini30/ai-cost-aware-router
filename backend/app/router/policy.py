@@ -10,8 +10,10 @@ never be confused with answer quality (a Phase 6 concern).
 
 import logging
 
+from app.core.config import Settings, settings
 from app.models.registry import CAPABILITY_TAGS, ModelSpec, Tier, list_models
 from app.router.agent import traceable
+from app.router.rules import tiers_from_map_value
 from app.router.schemas import RouteStage, RouterDecision
 
 log = logging.getLogger("app.router")
@@ -79,6 +81,7 @@ def strongest_capable(decision: RouterDecision) -> ModelSpec:
 def route_decision(
     decision: RouterDecision,
     threshold: float = 0.75,
+    app_settings: Settings | None = None,
 ) -> tuple[ModelSpec, list[RouteStage], bool]:
     """Select the cheapest capable model for a classification.
 
@@ -87,7 +90,11 @@ def route_decision(
     strong model and flags `fallback=True` when the pipeline empties.
     Raises ValueError only when the registry has no enabled models
     at all.
+
+    Tier gates come from settings (ROUTER_COMPLEXITY_TIER_MAP /
+    ROUTER_QUALITY_TIER_MAP); defaults preserve existing behaviour.
     """
+    cfg = app_settings or settings
     trace: list[RouteStage] = []
     candidates = [m for m in list_models() if m.enabled]
 
@@ -135,7 +142,12 @@ def route_decision(
                 kept=[m.id for m in candidates],
             )
         )
-        tier_allow = {Tier.FAST} if decision.complexity == "low" else {Tier.STRONG}
+        cplx_raw = cfg.complexity_tier_map().get(decision.complexity)
+        if cplx_raw is None:
+            # Unmapped complexity values default to STRONG (previous else-branch).
+            tier_allow = {Tier.STRONG}
+        else:
+            tier_allow = tiers_from_map_value(cplx_raw)
         trace.append(
             RouteStage(
                 stage="complexity",
@@ -144,20 +156,24 @@ def route_decision(
             )
         )
 
-    if decision.quality_required == "high":
-        tier_allow = {Tier.STRONG}
+    qual_raw = cfg.quality_tier_map().get(decision.quality_required)
+    if qual_raw is None:
         trace.append(
             RouteStage(
                 stage="quality",
-                rule="quality_required=high: override to strong tier",
+                rule=f"quality_required={decision.quality_required}: no restriction",
                 kept=[m.id for m in candidates if m.tier in tier_allow],
             )
         )
     else:
+        # A mapped quality REPLACES the tier set (override, not intersect).
+        tier_allow = tiers_from_map_value(qual_raw)
+        names = sorted(t.value for t in tier_allow)
+        target = names[0] if len(names) == 1 else "/".join(names)
         trace.append(
             RouteStage(
                 stage="quality",
-                rule="quality_required=standard: no restriction",
+                rule=f"quality_required={decision.quality_required}: override to {target} tier",
                 kept=[m.id for m in candidates if m.tier in tier_allow],
             )
         )

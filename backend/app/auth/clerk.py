@@ -78,12 +78,13 @@ def verify_clerk_token(token: str, app_settings: Settings) -> str:
     key = keys.get(kid)
     if key is None:
         raise AuthError("unknown signing key")
+    configured_issuer = app_settings.clerk_issuer.rstrip("/")
     try:
         payload = jwt.decode(
             token,
             key=key,
             algorithms=_ALGORITHMS,
-            issuer=app_settings.clerk_issuer,
+            issuer=(configured_issuer, f"{configured_issuer}/"),
             options={"require": ["exp", "sub"]},
         )
     except jwt.ExpiredSignatureError as exc:
