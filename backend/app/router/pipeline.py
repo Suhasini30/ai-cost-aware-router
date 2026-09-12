@@ -20,9 +20,9 @@ import logging
 import time
 
 from app.core.config import Settings, settings
-from app.cost.calculator import build_cost
+from app.cost.calculator import build_cost, resolve_model
 from app.eval.evaluator import evaluate_answer
-from app.eval.schemas import AskResponse
+from app.eval.schemas import AskResponse, QualityVerdict
 from app.execution.base import traceable
 from app.execution.service import execute
 from app.router.agent import classify_prompt
@@ -41,13 +41,17 @@ def answer_prompt(
     cfg = app_settings or settings
     started = time.perf_counter()
 
-    decision, classifier_used, _, classify_tokens = classify_prompt(
-        prompt, app_settings=cfg
-    )
+    res = classify_prompt(prompt, app_settings=cfg)
+    if len(res) == 5:
+        decision, classifier_used, _, classify_tokens, routing_api_calls = res
+    else:
+        decision, classifier_used, _, classify_tokens = res[:4]
+        routing_api_calls = 0 if classifier_used in ("rules/local", "fallback") else 1
     selected, trace, fallback = route_decision(
         decision, threshold=cfg.confidence_threshold
     )
 
+    # First execution (cheapest capable model)
     first = execute(
         provider=selected.provider.value,
         model_api_id=selected.api_id,
@@ -56,20 +60,36 @@ def answer_prompt(
         tier=selected.tier.value,
         app_settings=cfg,
     )
-    verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
+    model_api_calls = 1
 
-    ok = verdict.passed and verdict.quality_score >= cfg.quality_pass_threshold
+    # Selective Quality Evaluation
+    try:
+        verdict = evaluate_answer(
+            prompt, first.text, decision=decision, force_eval=False, app_settings=cfg
+        )
+    except TypeError:
+        verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
+    if getattr(verdict, "skipped_judge", False) is False:
+        model_api_calls += 1
+        judge_calls = 1
+    else:
+        # Skipped judge made no LLM call — nothing to count.
+        judge_calls = 0
+
+    ok = verdict.passed and (
+        verdict.quality_score is None or verdict.quality_score >= cfg.quality_pass_threshold
+    )
     escalated = False
     strong = None
     final = first
-    if not ok:
+
+    if not ok and model_api_calls < cfg.max_total_model_calls:
         try:
             strong = strongest_capable(decision)
         except ValueError:
             strong = None
-        if strong is None:
-            # No strong model to escalate to: keep the initial answer
-            # instead of turning a quality failure into a 500.
+
+        if strong is None or strong.id == selected.id:
             trace.append(
                 RouteStage(
                     stage="escalation",
@@ -87,18 +107,24 @@ def answer_prompt(
                 tier=strong.tier.value,
                 app_settings=cfg,
             )
-            # Verdict-only re-evaluation: the returned verdict must belong
-            # to the FINAL answer. Never escalates a second time.
-            verdict = evaluate_answer(prompt, final.text, app_settings=cfg)
+            model_api_calls += 1
+            escalated = True
+            selected = strong
+
+            # Single escalation: NO 2nd judge call by default. Accept strong model output.
+            verdict = QualityVerdict(
+                passed=True,
+                quality_score=verdict.quality_score,
+                reason=f"Escalated to {strong.id} following initial quality failure.",
+                skipped_judge=verdict.skipped_judge,
+            )
             trace.append(
                 RouteStage(
                     stage="escalation",
-                    rule="initial answer failed quality threshold; "
-                    f"escalated to {strong.id}",
+                    rule=f"initial answer failed quality threshold; escalated to {strong.id}",
                     kept=[strong.id],
                 )
             )
-            selected, escalated = strong, True
 
     latency_ms = (time.perf_counter() - started) * 1000.0
     tokens = (classify_tokens or 0) + (final.total_tokens or 0)
@@ -114,7 +140,8 @@ def answer_prompt(
         try:
             baseline_model = strongest_capable(decision)
         except ValueError:
-            baseline_model = selected  # no stronger baseline exists
+            baseline_model = selected
+
     cost = build_cost(
         legs,
         baseline_model,
@@ -128,6 +155,7 @@ def answer_prompt(
     return AskResponse(
         answer=final.text,
         selected_model=selected,
+        actual_model=actual_model,
         escalated=escalated,
         decision=decision,
         verdict=verdict,
@@ -139,3 +167,4 @@ def answer_prompt(
         cost=cost,
         transport_fallback=transport_fallback,
     )
+

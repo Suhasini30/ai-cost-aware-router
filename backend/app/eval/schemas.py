@@ -14,8 +14,9 @@ from app.router.schemas import RouteStage, RouterDecision
 
 class QualityVerdict(BaseModel):
     passed: bool
-    quality_score: float = Field(ge=0.0, le=1.0)
+    quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
     reason: str
+    skipped_judge: bool = False
 
 
 class AskRequest(BaseModel):
