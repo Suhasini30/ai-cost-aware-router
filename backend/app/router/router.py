@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.auth.dependencies import get_current_user_id
 from app.core.config import settings
 from app.eval.schemas import AskRequest, AskResponse
 from app.execution.base import ProviderUnavailableError
+from app.history.service import persist_ask_response
 from app.router.agent import classify_prompt
 from app.router.pipeline import answer_prompt
 from app.router.policy import route_decision
@@ -13,6 +16,8 @@ from app.router.schemas import (
     RouteRequest,
     RouteResponse,
 )
+
+log = logging.getLogger("app.router")
 
 router = APIRouter(prefix="/router", tags=["router"])
 
@@ -36,8 +41,10 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     try:
         decision, model_used, latency_ms, tokens = classify_prompt(prompt)
     except ProviderUnavailableError as exc:
+        log.warning("classify 502: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # never leak internals to the client
+        log.exception("classify 500")
         raise HTTPException(status_code=500, detail="classification failed") from exc
     return ClassifyResponse(
         decision=decision,
@@ -62,8 +69,10 @@ def route(req: RouteRequest) -> RouteResponse:
             decision, threshold=settings.confidence_threshold
         )
     except ProviderUnavailableError as exc:
+        log.warning("route 502: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # never leak internals to the client
+        log.exception("route 500")
         raise HTTPException(status_code=500, detail="routing failed") from exc
     return RouteResponse(
         decision=decision,
@@ -80,11 +89,14 @@ def route(req: RouteRequest) -> RouteResponse:
 def ask(
     req: AskRequest,
     user_id: str = Depends(get_current_user_id),
+    background: BackgroundTasks = None,
 ) -> AskResponse:
     """Full pipeline: classify, route, execute, evaluate, escalate once.
 
     Requires a valid Clerk JWT (401 otherwise). The user_id is exposed
-    on the response for downstream use; nothing is persisted here.
+    on the response for downstream use. The response is also persisted
+    to history best-effort AFTER sending (a dead database never fails
+    the answer).
 
     NOTE: the prompt and the generated answer are transmitted to the
     configured external providers, and calls are traced in LangSmith
@@ -95,8 +107,12 @@ def ask(
     try:
         response = answer_prompt(prompt)
     except ProviderUnavailableError as exc:
+        log.warning("ask 502: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # never leak internals to the client
+        log.exception("ask 500")
         raise HTTPException(status_code=500, detail="ask pipeline failed") from exc
     response.user_id = user_id
+    if background is not None:
+        background.add_task(persist_ask_response, prompt, response, user_id)
     return response

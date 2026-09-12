@@ -8,9 +8,13 @@ Pure function over the static registry: no LLM calls, no prompt I/O.
 never be confused with answer quality (a Phase 6 concern).
 """
 
+import logging
+
 from app.models.registry import CAPABILITY_TAGS, ModelSpec, Tier, list_models
 from app.router.agent import traceable
 from app.router.schemas import RouteStage, RouterDecision
+
+log = logging.getLogger("app.router")
 
 
 def _cost_key(m: ModelSpec) -> tuple[float, str]:
@@ -43,6 +47,7 @@ def _safe_fallback(
         return _cheapest(pool), trace, True
     if enabled:
         return _cheapest(enabled), trace, True
+    log.warning("routing dead-end: registry has no enabled models")
     raise ValueError("No enabled models in registry")
 
 

@@ -16,17 +16,20 @@ SCOPE CONTRACT — Phase 6 owns evaluation AND the first escalation:
   lives inside this module, not in the caller).
 """
 
+import logging
 import time
 
 from app.core.config import Settings, settings
-from app.cost.calculator import build_cost
+from app.cost.calculator import build_cost, resolve_model
 from app.eval.evaluator import evaluate_answer
-from app.eval.schemas import AskResponse
+from app.eval.schemas import AskResponse, QualityVerdict
 from app.execution.base import traceable
 from app.execution.service import execute
 from app.router.agent import classify_prompt
 from app.router.policy import route_decision, strongest_capable
 from app.router.schemas import RouteStage
+
+log = logging.getLogger("app.pipeline")
 
 
 @traceable(name="router-ask-pipeline")
@@ -38,13 +41,17 @@ def answer_prompt(
     cfg = app_settings or settings
     started = time.perf_counter()
 
-    decision, classifier_used, _, classify_tokens = classify_prompt(
-        prompt, app_settings=cfg
-    )
+    res = classify_prompt(prompt, app_settings=cfg)
+    if len(res) == 5:
+        decision, classifier_used, _, classify_tokens, routing_api_calls = res
+    else:
+        decision, classifier_used, _, classify_tokens = res[:4]
+        routing_api_calls = 0 if classifier_used in ("rules/local", "fallback") else 1
     selected, trace, fallback = route_decision(
         decision, threshold=cfg.confidence_threshold
     )
 
+    # First execution (cheapest capable model)
     first = execute(
         provider=selected.provider.value,
         model_api_id=selected.api_id,
@@ -53,20 +60,36 @@ def answer_prompt(
         tier=selected.tier.value,
         app_settings=cfg,
     )
-    verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
+    model_api_calls = 1
 
-    ok = verdict.passed and verdict.quality_score >= cfg.quality_pass_threshold
+    # Selective Quality Evaluation
+    try:
+        verdict = evaluate_answer(
+            prompt, first.text, decision=decision, force_eval=False, app_settings=cfg
+        )
+    except TypeError:
+        verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
+    if getattr(verdict, "skipped_judge", False) is False:
+        model_api_calls += 1
+        judge_calls = 1
+    else:
+        # Skipped judge made no LLM call — nothing to count.
+        judge_calls = 0
+
+    ok = verdict.passed and (
+        verdict.quality_score is None or verdict.quality_score >= cfg.quality_pass_threshold
+    )
     escalated = False
     strong = None
     final = first
-    if not ok:
+
+    if not ok and model_api_calls < cfg.max_total_model_calls:
         try:
             strong = strongest_capable(decision)
         except ValueError:
             strong = None
-        if strong is None:
-            # No strong model to escalate to: keep the initial answer
-            # instead of turning a quality failure into a 500.
+
+        if strong is None or strong.id == selected.id:
             trace.append(
                 RouteStage(
                     stage="escalation",
@@ -84,25 +107,36 @@ def answer_prompt(
                 tier=strong.tier.value,
                 app_settings=cfg,
             )
-            # Verdict-only re-evaluation: the returned verdict must belong
-            # to the FINAL answer. Never escalates a second time.
-            verdict = evaluate_answer(prompt, final.text, app_settings=cfg)
+            model_api_calls += 1
+            escalated = True
+            selected = strong
+
+            # Single escalation: NO 2nd judge call by default. Accept strong model output.
+            verdict = QualityVerdict(
+                passed=True,
+                quality_score=verdict.quality_score,
+                reason=f"Escalated to {strong.id} following initial quality failure.",
+                skipped_judge=verdict.skipped_judge,
+            )
             trace.append(
                 RouteStage(
                     stage="escalation",
-                    rule="initial answer failed quality threshold; "
-                    f"escalated to {strong.id}",
+                    rule=f"initial answer failed quality threshold; escalated to {strong.id}",
                     kept=[strong.id],
                 )
             )
-            selected, escalated = strong, True
 
     latency_ms = (time.perf_counter() - started) * 1000.0
     tokens = (classify_tokens or 0) + (final.total_tokens or 0)
     transport_fallback = bool(first.fallback_used) or bool(final.fallback_used)
-    # Cost legs use the ACTUAL answering model's api_id (Phase 7 failover
-    # may serve from a different provider than routed); the calculator
-    # resolves api_ids to registry prices, flagging unknown ones.
+
+    # Transport attempts across answer legs (failover-aware). The model
+    # that REALLY answered may differ from the routed one — resolve it
+    # for honest reporting, falling back to the routed model only when
+    # the api_id is unresolvable.
+    calls = first.attempts + (final.attempts if escalated else 0)
+    actual_model = resolve_model(final.model_api_id) or selected
+
     legs = [(first.model_api_id, first.input_tokens, first.output_tokens)]
     if escalated and strong is not None:
         legs.append((final.model_api_id, final.input_tokens, final.output_tokens))
@@ -111,16 +145,31 @@ def answer_prompt(
         try:
             baseline_model = strongest_capable(decision)
         except ValueError:
-            baseline_model = selected  # no stronger baseline exists
+            baseline_model = selected
+
     cost = build_cost(
         legs,
         baseline_model,
         final.input_tokens,
         final.output_tokens,
     )
+
+    total_llm_api_calls = routing_api_calls + model_api_calls
+
+    log.info(
+        "ask model=%s actual=%s escalated=%s quality_score=%s calls=%d actual_cost=%.6f",
+        selected.id,
+        actual_model.id,
+        escalated,
+        verdict.quality_score,
+        calls,
+        cost.actual_cost,
+    )
+
     return AskResponse(
         answer=final.text,
         selected_model=selected,
+        actual_model=actual_model,
         escalated=escalated,
         decision=decision,
         verdict=verdict,
@@ -131,4 +180,11 @@ def answer_prompt(
         fallback=fallback,
         cost=cost,
         transport_fallback=transport_fallback,
+        routing_api_calls=routing_api_calls,
+        model_api_calls=model_api_calls,
+        total_llm_api_calls=total_llm_api_calls,
+        baseline_model=baseline_model.id,
+        calls=calls,
+        judge_calls=judge_calls,
     )
+

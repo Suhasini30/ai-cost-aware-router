@@ -38,6 +38,9 @@ class ExecutionResult(BaseModel):
     retry_count: int = 0
     fallback_used: bool = False
     fallback_reason: str | None = None
+    # Total transport attempts behind this result (retries + failover
+    # targets + recovery round). Always >= 1 on success.
+    attempts: int = 1
 
 
 class ProviderUnavailableError(Exception):
