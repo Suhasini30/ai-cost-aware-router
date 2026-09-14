@@ -1,4 +1,4 @@
-"""Auth dependencies (Phase 10)."""
+"""Auth dependencies (Phase 10).
 
 Two accepted credential kinds, dispatched on the unverified issuer:
 - backend self-minted tokens (iss "cost-router") verify locally;
@@ -14,6 +14,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth.clerk import AuthError, verify_clerk_token
 from app.core import config as config_module
+from app.core.security import TokenError, verify_access_token
+
+LOCAL_ISSUER = "cost-router"
 
 log = logging.getLogger("app.auth")
 _bearer = HTTPBearer(auto_error=False)

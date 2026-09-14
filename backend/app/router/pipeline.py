@@ -78,6 +78,7 @@ def answer_prompt(
         max_tokens=ans_max_tokens,
         app_settings=cfg,
     )
+    verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
     model_api_calls = 1
 
     ok = verdict.passed and (
@@ -156,6 +157,9 @@ def answer_prompt(
         final.output_tokens,
     )
     final_text = re.sub(r'<think>.*?(?:</think>|$)\s*', '', final.text, flags=re.DOTALL).strip()
+    
+    actual_model = resolve_model(final.model_api_id)
+    
     log.info(
         "ask model=%s escalated=%s quality=%s actual_cost=%.6f",
         selected.id, escalated,
