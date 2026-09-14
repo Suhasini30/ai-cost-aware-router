@@ -16,7 +16,7 @@ async def get_analytics(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     try:
-        report = await build_report(range)
+        report = await build_report(range, user_id=user_id)
         return report
     except Exception as exc:
         # If MongoDB is genuinely down, return a controlled 503.

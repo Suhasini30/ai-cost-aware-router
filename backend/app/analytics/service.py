@@ -45,7 +45,7 @@ def _range_filter(range_key: str) -> dict | None:
 # ---------------------------------------------------------------------------
 # Aggregate one report from MongoDB (called from the FastAPI route via await)
 # ---------------------------------------------------------------------------
-async def aggregate_report(range_key: str, collection: AsyncIOMotorCollection | None = None) -> dict:
+async def aggregate_report(range_key: str, collection: AsyncIOMotorCollection | None = None, user_id: str | None = None) -> dict:
     """Run MongoDB aggregation pipelines and return the analytics report dict."""
     col = collection if collection is not None else get_query_logs()
     fmt = lambda v: v
@@ -54,7 +54,10 @@ async def aggregate_report(range_key: str, collection: AsyncIOMotorCollection | 
     date_filter = _range_filter(range_key)
 
     # --- $match stage ---
-    match_stage: dict = {"$match": date_filter or {}}
+    match_conds: dict = date_filter or {}
+    if user_id:
+        match_conds["user_id"] = user_id
+    match_stage: dict = {"$match": match_conds}
 
     # --- $project stage: pick / rename fields we need ---
     project_stage: dict = {
@@ -312,11 +315,10 @@ def summarize(records: list[dict]) -> dict:
 # Public API: async function the FastAPI route can await
 # ---------------------------------------------------------------------------
 
-async def build_report(range_key: str, app_settings: Settings | None = None) -> dict:
+async def build_report(range_key: str, app_settings: Settings | None = None, user_id: str | None = None) -> dict:
     """Return a full analytics report for *range_key* from MongoDB.
 
     The FastAPI route calls: `await build_report(range)`.
     """
     cfg = app_settings or settings
-    collection = get_query_logs()
-    return await aggregate_report(range_key, collection)
+    return await aggregate_report(range_key, user_id=user_id)
