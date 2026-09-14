@@ -71,7 +71,7 @@ export function RouterDetails({ resp }: { resp: AskResponse }) {
         <Row k="Cost">{resp.cost ? fmtMoney(resp.cost.actual_cost) : "—"}</Row>
         <Row k="Saved">
           {resp.cost ? (
-            <span className="text-mint font-semibold">{fmtPct(resp.cost.savings_percent)}</span>
+            <span className="text-gold font-semibold">{fmtPct(resp.cost.savings_percent)}</span>
           ) : (
             "—"
           )}

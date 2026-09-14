@@ -10,7 +10,7 @@ export function Card({ label, children }: { label: string; children: React.React
 export function Badge({ tone, children }: { tone: "pass" | "no" | "warn"; children: React.ReactNode }) {
   const cls =
     tone === "pass"
-      ? "bg-mint-bg text-mint"
+      ? "bg-teal-bg text-teal"
       : tone === "warn"
         ? "bg-amber-bg text-amber-soft"
         : "bg-white/5 text-ink-muted";

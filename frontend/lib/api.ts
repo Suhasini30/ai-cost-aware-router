@@ -117,6 +117,10 @@ export function getModels(): Promise<{ models: ModelSpec[]; count: number }> {
   return request("/models");
 }
 
+export function getHealth(): Promise<{ status: string }> {
+  return request("/health");
+}
+
 export function errorHint(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 401) return "Session expired or missing — please sign in again.";

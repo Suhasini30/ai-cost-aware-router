@@ -37,7 +37,7 @@ export function TraceTimeline({ resp, universe }: { resp: AskResponse; universe:
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium m-0 mb-1 flex items-center gap-2">
-                <span className="text-mint">✓</span>
+                <span className="text-teal">✓</span>
                 {STAGE_TITLES[stage.stage] ?? titleCase(stage.stage)}
               </p>
               <p className="text-xs text-ink-muted m-0 mb-1.5 leading-relaxed">{stage.rule ?? ""}</p>

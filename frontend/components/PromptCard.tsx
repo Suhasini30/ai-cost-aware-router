@@ -35,7 +35,7 @@ export function PromptCard({
             onClick={() => setPrompt(chip.sample)}
             className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
               prompt === chip.sample
-                ? "bg-mint-bg border-mint/35 text-mint"
+                ? "bg-gold-bg border-gold/40 text-gold"
                 : "border-white/20 text-ink-muted hover:border-white/40 hover:text-ink-text"
             }`}
           >
@@ -43,26 +43,22 @@ export function PromptCard({
           </button>
         ))}
       </div>
-      <div className="bg-ink-surface2 border border-white/15 rounded-lg px-3 py-2.5 focus-within:border-white/30 transition-colors">
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value.slice(0, MAX_CHARS))}
-          placeholder="Ask anything — the router picks the cheapest capable model."
-          className="w-full min-h-[72px] resize-none bg-transparent border-none outline-none text-ink-text text-sm leading-relaxed placeholder:text-ink-dim"
-        />
-        <div className="flex justify-end mt-1">
-          <span className={`text-[11px] tabular-nums transition-colors ${
-            atLimit ? "text-rose-soft" : nearLimit ? "text-amber-soft" : "text-ink-dim"
-          }`}>
-            {charCount.toLocaleString()} / {MAX_CHARS.toLocaleString()}
-          </span>
-        </div>
-      </div>
-      <div className="flex justify-end mt-3">
+      <textarea
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value.slice(0, MAX_CHARS))}
+        placeholder="Ask anything — the router picks the cheapest capable model."
+        className="w-full min-h-[72px] resize-none bg-ink-surface2 border border-white/15 rounded-lg px-3 py-2.5 outline-none text-ink-text text-sm leading-relaxed placeholder:text-ink-dim focus-within:border-white/30"
+      />
+      <div className="flex items-center justify-between mt-2">
+        <span className={`text-[11px] font-mono tabular-nums transition-colors ${
+          atLimit ? "text-rose-soft" : nearLimit ? "text-amber-soft" : "text-ink-dim"
+        }`}>
+          {charCount.toLocaleString()} / {MAX_CHARS.toLocaleString()}
+        </span>
         <button
           onClick={onRun}
           disabled={running || !prompt.trim()}
-          className="bg-mint text-[#04342C] rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40 transition-opacity hover:opacity-90"
+          className="bg-gold text-[#231A03] rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40 transition-opacity hover:opacity-90"
         >
           {running ? "Routing…" : "Run router"}
         </button>

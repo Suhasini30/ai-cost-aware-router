@@ -2,11 +2,11 @@ import type { AskResponse } from "@/lib/api";
 import { fmtMoney, fmtMs, fmtPct, fmtTokens, titleCase } from "@/lib/format";
 import { Badge, Card } from "./ui";
 
-function Stat({ k, v, tone }: { k: string; v: React.ReactNode; tone?: "emerald" | "amber" }) {
+function Stat({ k, v, tone }: { k: string; v: React.ReactNode; tone?: "teal" | "amber" }) {
   return (
     <div className="bg-ink-surface2 border border-white/10 rounded-[10px] px-3 py-2.5">
       <p className="text-[11px] text-ink-dim m-0 mb-1">{k}</p>
-      <p className={`text-sm font-semibold m-0 ${tone === "emerald" ? "text-mint" : tone === "amber" ? "text-amber-soft" : ""}`}>
+      <p className={`text-sm font-semibold m-0 ${tone === "teal" ? "text-teal" : tone === "amber" ? "text-amber-soft" : ""}`}>
         {v}
       </p>
     </div>
@@ -23,9 +23,9 @@ export function SummaryGrid({ resp }: { resp: AskResponse }) {
         <Stat k="Task type" v={d.task_type ? titleCase(d.task_type) : "—"} />
         <Stat k="Complexity" v={d.complexity ? titleCase(d.complexity) : "—"} />
         <Stat k="Capability" v={d.capability ? titleCase(d.capability) : "—"} />
-        <Stat k="Confidence" v={d.confidence != null ? `${Math.round(d.confidence * 100)}%` : "—"} tone="emerald" />
+        <Stat k="Confidence" v={d.confidence != null ? `${Math.round(d.confidence * 100)}%` : "—"} tone="teal" />
         <Stat k="Selected model" v={modelName} />
-        <Stat k="Quality score" v={v?.quality_score != null ? `${v.quality_score.toFixed(2)} / 1.0` : "— / 1.0"} tone="emerald" />
+        <Stat k="Quality score" v={v?.quality_score != null ? `${v.quality_score.toFixed(2)} / 1.0` : "— / 1.0"} tone="teal" />
         <Stat k="Latency" v={fmtMs(resp.latency_ms)} />
         <Stat k="Tokens used" v={fmtTokens(resp.tokens_used)} />
         <Stat k="Escalated" v={<Badge tone={resp.escalated ? "warn" : "no"}>{resp.escalated ? "Yes" : "No"}</Badge>} />
@@ -57,15 +57,15 @@ export function CostCard({ resp }: { resp: AskResponse }) {
         <span className="text-[13px] text-ink-muted">Strong-model baseline</span>
         <span className="text-[13.5px] text-ink-dim line-through">{fmtMoney(c.baseline_cost)}</span>
       </div>
-      <div className="mt-3 bg-mint-bg border border-mint/30 rounded-[10px] px-3 py-2.5 flex justify-between items-center">
+      <div className="mt-3 bg-gold-bg border border-gold/30 rounded-[10px] px-3 py-2.5 flex justify-between items-center">
         <div>
-          <div className="text-[15px] font-bold text-mint">{fmtMoney(c.savings)} saved</div>
-          <div className="text-xs text-mint opacity-85">vs. always using the strong model</div>
+          <div className="text-[15px] font-bold text-gold">{fmtMoney(c.savings)} saved</div>
+          <div className="text-xs text-gold opacity-85">vs. always using the strong model</div>
         </div>
-        <div className="text-base font-bold text-mint">{fmtPct(c.savings_percent)}</div>
+        <div className="text-base font-bold text-gold">{fmtPct(c.savings_percent)}</div>
       </div>
       <div className="h-[5px] rounded bg-white/5 mt-2.5 overflow-hidden">
-        <div className="h-full bg-mint rounded" style={{ width: `${pct}%` }} />
+        <div className="h-full bg-gold rounded" style={{ width: `${pct}%` }} />
       </div>
     </Card>
   );
@@ -78,7 +78,7 @@ export function ReliabilityCard({ resp }: { resp: AskResponse }) {
     <Card label="Provider reliability">
       {!flagged ? (
         <div className="flex items-center gap-2 text-[13px] text-ink-muted">
-          <span className="text-mint">✓</span>No provider fallback required
+          <span className="text-teal">✓</span>No provider fallback required
         </div>
       ) : (
         <div className="bg-amber-bg border border-amber-soft/30 rounded-[10px] px-3 py-2.5">

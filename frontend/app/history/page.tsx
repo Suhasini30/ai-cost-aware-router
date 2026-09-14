@@ -87,25 +87,25 @@ function DetailDrawer({ item, token, onClose, onRated }: {
           </div>
           <div className="bg-ink-surface2 border border-white/10 rounded-[10px] px-3 py-2">
             <p className="text-[11px] text-ink-dim m-0">Cost / saved</p>
-            <p className="text-[13px] font-semibold m-0 text-mint">${shown.actual_cost?.toFixed(5) ?? "—"} / ${shown.cost_saved?.toFixed(5) ?? "—"}</p>
+            <p className="text-[13px] font-semibold m-0 text-gold">${shown.actual_cost?.toFixed(5) ?? "—"} / ${shown.cost_saved?.toFixed(5) ?? "—"}</p>
           </div>
         </div>
         <p className="text-[11.5px] text-ink-dim m-0 mb-1 font-medium">YOUR RATING</p>
         {sent ? (
-          <p className="text-[13px] text-mint m-0">Thanks — feedback recorded.</p>
+            <p className="text-[13px] text-gold m-0">Thanks — feedback recorded.</p>
         ) : (
           <div>
             <div className="flex gap-1.5 mb-2">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} onClick={() => setRating(n)}
-                  className={`w-8 h-8 rounded-lg border text-[13px] font-semibold ${rating >= n ? "bg-mint-bg border-mint/40 text-mint" : "border-white/15 text-ink-dim"}`}>
+                  className={`w-8 h-8 rounded-lg border text-[13px] font-semibold ${rating >= n ? "bg-gold-bg border-gold/40 text-gold" : "border-white/15 text-ink-dim"}`}>
                   {n}
                 </button>
               ))}
             </div>
             <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Optional comment…"
               className="w-full min-h-16 bg-ink-surface2 border border-white/10 rounded-lg p-2.5 text-[13px] outline-none placeholder:text-ink-dim mb-2" />
-            <button onClick={sendFeedback} className="bg-mint text-[#04342C] rounded-lg px-4 py-2 text-[13px] font-semibold">
+            <button onClick={sendFeedback} className="bg-gold text-[#231A03] rounded-lg px-4 py-2 text-[13px] font-semibold">
               Send feedback
             </button>
           </div>
@@ -192,7 +192,7 @@ export default function HistoryPage() {
               className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 px-4 py-3 border-b border-white/[0.06] last:border-none items-center cursor-pointer hover:bg-white/[0.02]">
               <span className="text-[12.5px] text-ink-muted truncate pr-4" title={row.prompt}>{row.prompt}</span>
               <span className="text-[12px] text-ink-text font-medium whitespace-nowrap">{row.final_model}</span>
-              <span className="text-[12px] text-mint font-mono whitespace-nowrap">${row.actual_cost?.toFixed(5) ?? "—"}</span>
+              <span className="text-[12px] text-gold font-mono whitespace-nowrap">${row.actual_cost?.toFixed(5) ?? "—"}</span>
               <span className="text-[12px] text-ink-muted font-mono whitespace-nowrap">{row.quality_score?.toFixed(2) ?? "—"}</span>
               <span className="text-[12px] text-ink-dim font-mono whitespace-nowrap">{Math.round(row.latency_ms ?? 0)}ms</span>
               <div className="flex gap-1.5 whitespace-nowrap">

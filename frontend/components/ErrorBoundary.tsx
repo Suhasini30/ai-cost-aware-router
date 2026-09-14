@@ -6,7 +6,7 @@ import React from "react";
  *  a message instead of a blank area. Data-fetch errors are handled
  *  separately by the page-level error state. */
 export class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
+  { children: React.ReactNode; fallback?: React.ReactNode },
   { error: Error | null }
 > {
   state: { error: Error | null } = { error: null };
@@ -17,6 +17,9 @@ export class ErrorBoundary extends React.Component<
 
   render() {
     if (this.state.error) {
+      if (this.props.fallback !== undefined) {
+        return <>{this.props.fallback}</>;
+      }
       return (
         <div className="bg-rose-bg border border-rose-soft/30 rounded-[10px] px-4 py-3 mb-5">
           <p className="text-[13px] font-semibold text-rose-soft m-0 mb-1">

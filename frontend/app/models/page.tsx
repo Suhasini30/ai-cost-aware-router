@@ -6,7 +6,7 @@ import { fmtMoney } from "@/lib/format";
 import { Skeleton } from "@/components/ui";
 
 const TIER_STYLE: Record<string, string> = {
-  fast: "bg-mint-bg text-mint border-mint/25",
+  fast: "bg-teal-bg text-teal border-teal/25",
   strong: "bg-amber-bg text-amber-soft border-amber-soft/25",
 };
 
@@ -14,7 +14,7 @@ const MAX_COST = 0.006; // output cost ceiling for bar scaling
 
 function CostBar({ value }: { value: number }) {
   const pct = Math.min(100, (value / MAX_COST) * 100);
-  const color = pct < 10 ? "bg-mint" : pct < 40 ? "bg-amber-soft" : "bg-rose-soft";
+  const color = pct < 10 ? "bg-teal" : pct < 40 ? "bg-amber-soft" : "bg-rose-soft";
   return (
     <div className="h-[5px] rounded-full bg-white/[0.06] overflow-hidden w-full mt-1">
       <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
