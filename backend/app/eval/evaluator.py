@@ -61,6 +61,38 @@ def should_evaluate(decision: RouterDecision | None, answer: str,
     return False
 
 
+def should_evaluate(decision: RouterDecision | None, answer: str,
+                      app_settings: Settings | None = None) -> bool:
+    """Determine if an answer requires LLM Quality Judge verification.
+
+    Task types and the short-answer cutoff come from settings
+    (ROUTER_JUDGE_TASK_TYPES / ROUTER_JUDGE_MIN_ANSWER_CHARS).
+    Returns True if prompt triggers (needs_verification, high complexity, high
+    quality requirement, listed task type) OR answer triggers (too short,
+    truncated, contains error markers). Returns False otherwise to skip
+    the judge and save LLM API calls.
+    """
+    cfg = app_settings or settings
+    min_chars = cfg.router_judge_min_answer_chars
+    judge_tasks = {t.strip().lower()
+                   for t in cfg.router_judge_task_types.split(",") if t.strip()}
+    clean_ans = (answer or "").strip()
+    if len(clean_ans) < min_chars or clean_ans.startswith(("Error:", "Failed:", "500", "502")):
+        return True
+
+    if decision is not None:
+        if decision.needs_verification:
+            return True
+        if decision.complexity == "high":
+            return True
+        if decision.quality_required == "high":
+            return True
+        if decision.task_type in judge_tasks:
+            return True
+
+    return False
+
+
 @traceable(name="quality-eval")
 def evaluate_answer(
     prompt: str,

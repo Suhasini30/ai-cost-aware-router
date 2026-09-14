@@ -21,9 +21,9 @@ import time
 import re
 
 from app.core.config import Settings, settings
-from app.cost.calculator import build_cost
+from app.cost.calculator import build_cost, resolve_model
 from app.eval.evaluator import evaluate_answer
-from app.eval.schemas import AskResponse
+from app.eval.schemas import AskResponse, QualityVerdict
 from app.execution.base import traceable
 from app.execution.service import execute
 from app.router.agent import classify_prompt
@@ -78,7 +78,7 @@ def answer_prompt(
         max_tokens=ans_max_tokens,
         app_settings=cfg,
     )
-    verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
+    model_api_calls = 1
 
     ok = verdict.passed and (
         verdict.quality_score is None or verdict.quality_score >= cfg.quality_pass_threshold
@@ -97,9 +97,8 @@ def answer_prompt(
             strong = strongest_capable(decision)
         except ValueError:
             strong = None
-        if strong is None:
-            # No strong model to escalate to: keep the initial answer
-            # instead of turning a quality failure into a 500.
+
+        if strong is None or strong.id == selected.id:
             trace.append(
                 RouteStage(
                     stage="escalation",
@@ -127,8 +126,7 @@ def answer_prompt(
             trace.append(
                 RouteStage(
                     stage="escalation",
-                    rule="initial answer failed quality threshold; "
-                    f"escalated to {strong.id}",
+                    rule=f"initial answer failed quality threshold; escalated to {strong.id}",
                     kept=[strong.id],
                 )
             )
@@ -149,7 +147,8 @@ def answer_prompt(
         try:
             baseline_model = strongest_capable(decision)
         except ValueError:
-            baseline_model = selected  # no stronger baseline exists
+            baseline_model = selected
+
     cost = build_cost(
         legs,
         baseline_model,
@@ -166,6 +165,7 @@ def answer_prompt(
     return AskResponse(
         answer=final_text,
         selected_model=selected,
+        actual_model=actual_model,
         escalated=escalated,
         decision=decision,
         verdict=verdict,
@@ -184,3 +184,4 @@ def answer_prompt(
         initial_verdict=initial_verdict if initial_reason else None,
         escalation_reason=initial_reason,
     )
+

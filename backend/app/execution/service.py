@@ -20,7 +20,16 @@ from app.execution.base import (
 )
 from app.execution.factory import get_adapter
 from app.reliability.fallback import alternatives
-from app.reliability.retry import backoff_delays, is_retryable
+from app.reliability.retry import (
+    backoff_delays,
+    is_retryable,
+    retry_after,
+    status_of,
+)
+
+log = logging.getLogger("app.execution")
+
+log = logging.getLogger("app.execution")
 
 log = logging.getLogger("app.execution")
 
@@ -64,27 +73,59 @@ def execute(
 
     errors: list[str] = []
     slept = 0
+    tries = 0
     tried: list[str] = []
-    for index, (tgt_provider, tgt_model) in enumerate(targets):
-        if tgt_provider not in tried:
-            tried.append(tgt_provider)
+    # (provider, model, capped Retry-After or None) for 429'd targets,
+    # retried once at the end if everything else failed.
+    throttled: list[tuple[str, str, float | None]] = []
+
+    def _succeed(result, tgt_provider, tgt_model):
+        result.retry_count = slept
+        result.attempts = tries
+        if (tgt_provider, tgt_model) != targets[0]:
+            result.fallback_used = True
+            result.provider = tgt_provider
+            result.model_api_id = tgt_model
+            result.fallback_reason = (
+                f"{provider} failed ({errors[0]}); "
+                f"fell back to {tgt_provider}/{tgt_model}"
+            )
+            log.warning(
+                "provider failover %s -> %s (%s)",
+                provider, tgt_provider, errors[0],
+            )
+        return result
+
+    def _resolve(tgt_provider):
         try:
             adapter = get_adapter(tgt_provider, cfg)
         except ValueError as exc:
             # Missing key / unknown provider: skip to the next compatible
             # target instead of aborting the whole failover loop.
             errors.append(f"{type(exc).__name__}")
-            continue
+            return None
         if max_tokens is not None:
             adapter.max_tokens = max_tokens
+        return adapter
+
+    for tgt_provider, tgt_model in targets:
+        if tgt_provider not in tried:
+            tried.append(tgt_provider)
+        adapter = _resolve(tgt_provider)
+        if adapter is None:
+            continue
         attempt = 0
         while True:
+            tries += 1
             try:
-                result = adapter.execute(
-                    model_api_id=tgt_model,
-                    prompt=prompt,
-                    system_prompt=system_prompt,
-                    json_mode=json_mode,
+                return _succeed(
+                    adapter.execute(
+                        model_api_id=tgt_model,
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        json_mode=json_mode,
+                    ),
+                    tgt_provider, tgt_model,
                 )
                 result.retry_count = slept
                 if index > 0:
@@ -102,6 +143,17 @@ def execute(
                 return result
             except Exception as exc:  # noqa: BLE001 — classified below
                 errors.append(f"{type(exc).__name__}")
+                if status_of(exc) == 429:
+                    # Fail over FIRST: never sleep into a throttled key.
+                    # The capped wait is honored once, at the end, only if
+                    # every compatible target failed.
+                    throttled.append(
+                        (tgt_provider, tgt_model, retry_after(exc)))
+                    log.warning(
+                        "throttled %s/%s, failing over",
+                        tgt_provider, tgt_model,
+                    )
+                    break
                 if is_retryable(exc) and attempt < budget:
                     log.warning(
                         "retry %s/%s attempt %d after %s",
