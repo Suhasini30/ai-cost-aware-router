@@ -37,6 +37,33 @@ def to_query_log(
         for s in response.trace
     ]
     initial = breakdown[0].model_id if breakdown else response.selected_model.id
+
+    # --- Extract escalation fields from trace (analytics) ---
+    esc_reason: str | None = None
+    esc_category: str | None = None
+    for stage in response.trace or []:
+        if not isinstance(stage, dict) or stage.get("stage") != "escalation":
+            continue
+        rule = str(stage.get("rule", ""))
+        if "failed quality" in rule:
+            esc_reason = "quality gate failed"
+            esc_category = "quality"
+        elif "no enabled strong" in rule:
+            esc_reason = "no strong model available"
+            esc_category = "capacity"
+        else:
+            esc_reason = rule or "escalated"
+            esc_category = "other"
+        break  # first escalation stage wins
+
+    # Provider: extract from the first model id in breakdown or selected_model
+    # Model IDs often carry a prefix like "mistral-fast", "gpt-4o", "groq-llama-70b"
+    provider: str | None = None
+    if breakdown and breakdown[0].model_id:
+        provider = breakdown[0].model_id.split("-")[0] if "-" in breakdown[0].model_id else breakdown[0].model_id
+    elif response.selected_model.id:
+        provider = response.selected_model.id.split("-")[0] if "-" in response.selected_model.id else response.selected_model.id
+
     doc = QueryLogDocument(
         request_id=uuid.uuid4().hex,
         user_id=user_id,
@@ -47,6 +74,7 @@ def to_query_log(
         confidence_score=response.decision.confidence,
         initial_model=initial,
         final_model=response.selected_model.id,
+        provider=provider,
         escalated=response.escalated,
         passed=response.verdict.passed,
         quality_score=response.verdict.quality_score,
@@ -62,6 +90,8 @@ def to_query_log(
         baseline_cost=response.cost.baseline_cost,
         actual_cost=response.cost.actual_cost,
         cost_saved=response.cost.savings,  # canonical: pipeline-computed
+        escalation_reason=esc_reason,
+        escalation_category=esc_category,
         privacy=PrivacySettings(
             store_prompts=cfg.privacy_store_prompts,
             store_answers=cfg.privacy_store_answers,

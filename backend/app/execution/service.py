@@ -112,11 +112,8 @@ def execute(
                     slept += 1
                     attempt += 1
                     continue
-                if not is_retryable(exc):
-                    # Deterministic client error (bad request, bad key,
-                    # unknown model): retrying or fanning out to other
-                    # providers cannot fix it — stop immediately.
-                    raise
+                # Stop retrying this provider if we're out of attempts
+                # or if the error is deterministic (401/403/404).
                 break  # next target (or terminal raise below)
 
     raise ProviderUnavailableError(

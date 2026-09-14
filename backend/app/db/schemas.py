@@ -37,6 +37,7 @@ class QueryLogDocument(BaseModel):
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
     initial_model: str
     final_model: str
+    provider: str | None = None
     escalated: bool = False
     passed: bool = True
     quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -56,6 +57,10 @@ class QueryLogDocument(BaseModel):
     baseline_cost: float = Field(default=0.0, ge=0.0, description="Cost if strongest baseline model was used")
     actual_cost: float = Field(default=0.0, ge=0.0, description="Actual model execution cost")
     cost_saved: float = Field(default=0.0, description="Calculated as baseline_cost - actual_cost")
+
+    # Escalation fields (for analytics)
+    escalation_reason: str | None = None
+    escalation_category: str | None = None
 
     privacy: PrivacySettings = Field(default_factory=PrivacySettings)
     user_feedback: dict[str, Any] | None = Field(default=None)

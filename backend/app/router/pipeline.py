@@ -18,6 +18,7 @@ SCOPE CONTRACT — Phase 6 owns evaluation AND the first escalation:
 
 import logging
 import time
+import re
 
 from app.core.config import Settings, settings
 from app.cost.calculator import build_cost
@@ -45,12 +46,27 @@ def answer_prompt(
     # Agent may return 4- or 5-tuples depending on version (routing_api_calls
     # was added later); accept both so mixed-version trees keep working.
     if len(res) == 5:
-        decision, classifier_used, _, classify_tokens, _ = res
+        decision, classifier_used, _, classify_tokens, routing_calls = res
     else:
         decision, classifier_used, _, classify_tokens = res[:4]
+        routing_calls = 0 if classifier_used in ("rules/local", "fallback") else 1
     selected, trace, fallback = route_decision(
         decision, threshold=cfg.confidence_threshold
     )
+
+    ans_system_prompt = None
+    ans_max_tokens = None
+    if decision.task_type in ("general_qa", "classification"):
+        ans_system_prompt = (
+            "Match your response's format and length to what the question actually calls for, not to a fixed style:\n"
+            "- Definitional / simple factual questions ('what is X', 'define X') → 2–4 sentences of plain prose. No tables, no headers, no bullet lists, no unsolicited examples, unless the user asks for more detail.\n"
+            "- Comparison questions ('compare X and Y', 'X vs Y') → a short intro sentence, then a compact table (2–4 rows covering the most relevant dimensions — not exhaustive), optionally 1–2 sentences of takeaway after. Skip extra sections like 'Key Challenges' or 'Quick Takeaway' unless asked.\n"
+            "- 'How does X work' / process questions → a short numbered list of steps only if there's a genuine sequence; otherwise prose.\n"
+            "- Everything else → default to prose; add structure (lists/tables) only when the content has a natural structure (multiple parallel items, steps, or a comparison), not as decoration.\n"
+            "The goal is that structure should come from the shape of the question, not be applied uniformly. A one-word question should never produce a table. A comparison question should almost always produce one."
+        )
+        if decision.complexity == "low":
+            ans_max_tokens = 400
 
     first = execute(
         provider=selected.provider.value,
@@ -58,6 +74,8 @@ def answer_prompt(
         prompt=prompt,
         capability=decision.capability,
         tier=selected.tier.value,
+        system_prompt=ans_system_prompt,
+        max_tokens=ans_max_tokens,
         app_settings=cfg,
     )
     verdict = evaluate_answer(prompt, first.text, app_settings=cfg)
@@ -98,6 +116,8 @@ def answer_prompt(
                 prompt=prompt,
                 capability=decision.capability,
                 tier=strong.tier.value,
+                system_prompt=ans_system_prompt,
+                max_tokens=ans_max_tokens,
                 app_settings=cfg,
             )
             # Verdict-only re-evaluation: the returned verdict must belong
@@ -136,12 +156,15 @@ def answer_prompt(
         final.input_tokens,
         final.output_tokens,
     )
+    final_text = re.sub(r'<think>.*?(?:</think>|$)\s*', '', final.text, flags=re.DOTALL).strip()
     log.info(
-        "ask model=%s escalated=%s quality=%.2f actual_cost=%.6f",
-        selected.id, escalated, verdict.quality_score, cost.actual_cost,
+        "ask model=%s escalated=%s quality=%s actual_cost=%.6f",
+        selected.id, escalated,
+        f"{verdict.quality_score:.2f}" if verdict.quality_score is not None else "N/A",
+        cost.actual_cost,
     )
     return AskResponse(
-        answer=final.text,
+        answer=final_text,
         selected_model=selected,
         escalated=escalated,
         decision=decision,
@@ -153,6 +176,10 @@ def answer_prompt(
         fallback=fallback,
         cost=cost,
         transport_fallback=transport_fallback,
+        routing_api_calls=routing_calls,
+        model_api_calls=2 if escalated else 1,
+        total_llm_api_calls=routing_calls + (2 if escalated else 1),
+        baseline_model=baseline_model.id if baseline_model else None,
         initial_model=initial_model_id if initial_reason else None,
         initial_verdict=initial_verdict if initial_reason else None,
         escalation_reason=initial_reason,

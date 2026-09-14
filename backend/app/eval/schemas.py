@@ -40,6 +40,10 @@ class AskResponse(BaseModel):
     fallback: bool
     cost: CostResult
     transport_fallback: bool = False
+    routing_api_calls: int = 0
+    model_api_calls: int = 1
+    total_llm_api_calls: int = 1
+    baseline_model: str | None = None
     # Rejection transparency: populated ONLY when an initial answer was
     # rejected (escalation) or retained for lack of a strong model.
     # All None on clean passes, so existing consumers see no change there.
