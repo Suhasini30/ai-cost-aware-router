@@ -107,6 +107,7 @@ class Settings(BaseSettings):
         "http://localhost:3001",
         "http://127.0.0.1:3001",
         "https://frontend-ten-hazel-32.vercel.app",
+        "https://frontend-g8mw7i3p7-suhasini1530-1056s-projects.vercel.app",
     ]
 
     # Observability: stdout log verbosity (LOG_LEVEL env overrides).
