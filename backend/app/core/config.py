@@ -106,6 +106,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        "https://frontend-ten-hazel-32.vercel.app",
     ]
 
     # Observability: stdout log verbosity (LOG_LEVEL env overrides).
