@@ -1,10 +1,17 @@
-node_modules/
-.next/
-out/
-build/
-dist/
-*.tsbuildinfo
-.env*.local
+# Root .gitignore
+
+# -----------------
+# Custom / Scratch
+# -----------------
+scratch_*.py
+scratch/
+temp/
+tmp/
+*.tmp
+
+# -----------------
+# Python / Backend
+# -----------------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -15,9 +22,24 @@ htmlcov/
 venv/
 env/
 .env
-scratch_*.py
-scratch/
-temp/
-tmp/
-*.tmp
+
+# -----------------
+# Node / Frontend
+# -----------------
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+.env*.local
+
+# -----------------
+# OS / Editor
+# -----------------
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

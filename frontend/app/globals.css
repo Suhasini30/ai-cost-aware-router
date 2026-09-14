@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-bg: #0B0E13;
+  --color-ink-surface: #12161D;
+  --color-ink-surface2: #0D1119;
+  --color-ink-text: #EDEFF5;
+  --color-ink-muted: #8B93A7;
+  --color-ink-dim: #5A6274;
+  --color-gold: #F0B429;
+  --color-gold-bg: rgba(240, 180, 41, 0.12);
+  --color-teal: #4FD1C5;
+  --color-teal-bg: rgba(79, 209, 197, 0.12);
+  --color-amber-soft: #F5B24A;
+  --color-amber-bg: rgba(245, 178, 74, 0.12);
+  --color-rose-soft: #FB7185;
+  --color-rose-bg: rgba(251, 113, 133, 0.12);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+body {
+  background: var(--color-ink-bg);
+  color: var(--color-ink-text);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- User-added design tokens (plain CSS, framework-independent) ---- */
+:root {
+  --color-bg: hsl(220, 10%, 8%);
+  --color-surface: rgba(255, 255, 255, 0.07);
+  --color-primary: hsl(160, 70%, 45%);
+  --color-text: hsl(0, 0%, 92%);
+  --color-muted: hsl(0, 0%, 60%);
+}
+
+/* Glass helper */
+.glass {
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeInUp 0.6s ease-out forwards; }
+
+.card-hover { transition: transform .2s, box-shadow .2s; }
+.card-hover:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+
+.btn-ripple { position: relative; overflow: hidden; }
+.btn-ripple::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--color-primary) 10%, transparent 10.01%);
+  opacity: 0;
+  transition: transform .4s, opacity .4s;
+}
+.btn-ripple:active::after { transform: scale(10); opacity: .2; }
