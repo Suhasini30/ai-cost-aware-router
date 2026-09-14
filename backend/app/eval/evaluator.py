@@ -20,9 +20,45 @@ _JUDGE_PROMPT = """You grade an AI answer for a user prompt.
 Reply with JSON ONLY, exactly these keys:
 {"passed": true|false,
  "quality_score": <0.0-1.0>,
- "reason": "<one short sentence>"}
+ "reason": "<one short sentence>",
+ "issues": ["<concrete problem 1>", "<problem 2, if any>"],
+ "improvement_instructions": "<what the next model should do differently, or null>"}
 Grade on relevance, factual accuracy, and completeness. Pass answers
-that genuinely help; fail refusals, off-topic text, or empty answers."""
+that genuinely help; fail refusals, off-topic text, or empty answers.
+The issues/improvement fields may be empty/null — they are advisory,
+never load-bearing: missing keys default safely downstream."""
+
+
+def should_evaluate(decision: RouterDecision | None, answer: str,
+                      app_settings: Settings | None = None) -> bool:
+    """Determine if an answer requires LLM Quality Judge verification.
+
+    Task types and the short-answer cutoff come from settings
+    (ROUTER_JUDGE_TASK_TYPES / ROUTER_JUDGE_MIN_ANSWER_CHARS).
+    Returns True if prompt triggers (needs_verification, high complexity, high
+    quality requirement, listed task type) OR answer triggers (too short,
+    truncated, contains error markers). Returns False otherwise to skip
+    the judge and save LLM API calls.
+    """
+    cfg = app_settings or settings
+    min_chars = cfg.router_judge_min_answer_chars
+    judge_tasks = {t.strip().lower()
+                   for t in cfg.router_judge_task_types.split(",") if t.strip()}
+    clean_ans = (answer or "").strip()
+    if len(clean_ans) < min_chars or clean_ans.startswith(("Error:", "Failed:", "500", "502")):
+        return True
+
+    if decision is not None:
+        if decision.needs_verification:
+            return True
+        if decision.complexity == "high":
+            return True
+        if decision.quality_required == "high":
+            return True
+        if decision.task_type in judge_tasks:
+            return True
+
+    return False
 
 
 def should_evaluate(decision: RouterDecision | None, answer: str,

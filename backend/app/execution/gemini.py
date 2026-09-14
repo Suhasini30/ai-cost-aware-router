@@ -26,7 +26,7 @@ class GeminiAdapter(ProviderAdapter):
             },
         }
         if system_prompt:
-            body["system_instruction"] = {"parts": [{"text": system_prompt}]}
+            body["systemInstruction"] = {"parts": [{"text": system_prompt}]}
         if json_mode:
             body["generationConfig"]["responseMimeType"] = "application/json"
 

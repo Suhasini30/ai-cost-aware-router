@@ -10,8 +10,6 @@ from app.execution.mistral import MistralAdapter
 
 log = logging.getLogger("app.execution")
 
-log = logging.getLogger("app.execution")
-
 
 def get_adapter(provider: str, app_settings: Settings) -> ProviderAdapter:
     """Resolve a provider name to a configured adapter.

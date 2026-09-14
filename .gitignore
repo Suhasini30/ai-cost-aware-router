@@ -1,55 +1,45 @@
-# Python
+# Root .gitignore
+
+# -----------------
+# Custom / Scratch
+# -----------------
+scratch_*.py
+scratch/
+temp/
+tmp/
+*.tmp
+
+# -----------------
+# Python / Backend
+# -----------------
 __pycache__/
 *.py[cod]
-*.pyo
-
-# Virtual environment
-.venv/
-venv/
-env/
-
-# Environment variables
-.env
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Testing
+*$py.class
 .pytest_cache/
 .coverage
 htmlcov/
-tests/
-test_*.py
-*.test.*
-test.py
+.venv/
+venv/
+env/
+.env
 
-# Build
-build/
-dist/
-*.egg-info/
-
-# Node / Next.js
+# -----------------
+# Node / Frontend
+# -----------------
 node_modules/
 .next/
 out/
+build/
+dist/
+*.tsbuildinfo
+.env*.local
 
-# Local databases
-*.db
-*.sqlite
-*.sqlite3
-
-# Temporary files
-tmp/
-temp/
-
-# Benchmark reports (generated, Phase 9)
-backend/evaluation/results/
+# -----------------
+# OS / Editor
+# -----------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

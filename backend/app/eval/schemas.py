@@ -17,6 +17,10 @@ class QualityVerdict(BaseModel):
     quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
     reason: str
     skipped_judge: bool = False
+    # Rejection transparency: populated by the judge when it fails an
+    # answer; always optional so older payloads still validate.
+    issues: list[str] = Field(default_factory=list)
+    improvement_instructions: str | None = None
 
 
 class AskRequest(BaseModel):
@@ -36,6 +40,18 @@ class AskResponse(BaseModel):
     fallback: bool
     cost: CostResult
     transport_fallback: bool = False
+    routing_api_calls: int = 0
+    model_api_calls: int = 1
+    total_llm_api_calls: int = 1
+    baseline_model: str | None = None
+    # Rejection transparency: populated ONLY when an initial answer was
+    # rejected (escalation) or retained for lack of a strong model.
+    # All None on clean passes, so existing consumers see no change there.
+    # `verdict` always belongs to the FINAL answer; `initial_verdict`
+    # preserves the discarded one. `answer` is always the final answer.
+    initial_model: str | None = None
+    initial_verdict: QualityVerdict | None = None
+    escalation_reason: str | None = None  # "quality_gate_failed" | "no_strong_available"
     # Phase 10: verified Clerk user id. Observable only — MongoDB (Phase 11)
     # owns persistence. Always set on endpoint success (the auth dependency
     # guarantees it); None only on programmatically built responses.

@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth.router import router as auth_router
+from app.analytics.router import router as analytics_router
 from app.core.config import settings
 from app.core.logging import RequestLoggingMiddleware, setup_logging
 from app.core.tracing import setup_tracing
@@ -43,6 +44,7 @@ app.add_middleware(
 # Access log last = outermost, so every request is recorded.
 app.add_middleware(RequestLoggingMiddleware)
 app.include_router(auth_router)
+app.include_router(analytics_router)
 app.include_router(history_router)
 app.include_router(router_router)
 

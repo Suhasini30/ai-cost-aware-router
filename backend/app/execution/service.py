@@ -31,6 +31,8 @@ log = logging.getLogger("app.execution")
 
 log = logging.getLogger("app.execution")
 
+log = logging.getLogger("app.execution")
+
 
 @traceable(name="execution-run")
 def execute(
@@ -162,41 +164,9 @@ def execute(
                     slept += 1
                     attempt += 1
                     continue
-                if not is_retryable(exc):
-                    # Deterministic client error (bad request, bad key,
-                    # unknown model): retrying cannot fix it. A 403 can,
-                    # however, be provider-specific, so try a compatible
-                    # alternative before returning unavailable.
-                    if status_of(exc) != 403:
-                        raise
-                    break
-                break  # next target (or recovery round below)
-
-    # Single recovery round over throttled targets (single tries, no
-    # nesting); skipped entirely when budget is 0.
-    if throttled and budget > 0:
-        waits = [w for _, _, w in throttled if w is not None]
-        sleep_fn(min(waits) if waits
-                 else cfg.reliability_backoff_base_s)
-        slept += 1
-        for tgt_provider, tgt_model, _ in throttled:
-            adapter = _resolve(tgt_provider)
-            if adapter is None:
-                continue
-            tries += 1
-            try:
-                return _succeed(
-                    adapter.execute(
-                        model_api_id=tgt_model,
-                        prompt=prompt,
-                        system_prompt=system_prompt,
-                        json_mode=json_mode,
-                    ),
-                    tgt_provider, tgt_model,
-                )
-            except Exception as exc:
-                errors.append(f"{type(exc).__name__}")
-                continue
+                # Stop retrying this provider if we're out of attempts
+                # or if the error is deterministic (401/403/404).
+                break  # next target (or terminal raise below)
 
     raise ProviderUnavailableError(
         f"All compatible providers failed: {'; '.join(errors)}",
