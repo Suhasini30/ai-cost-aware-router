@@ -16,22 +16,22 @@ Consider a user submitting the following prompt in the interactive console:
 
 ```mermaid
 flowchart TD
-    User Prompt --> ConsoleUI[1. Next.js Console app/console/page.tsx]
-    ConsoleUI -->|getToken| ClerkAuth[2. Clerk Auth Session]
-    ClerkAuth -->> ConsoleUI: JWT Token
-    ConsoleUI -->|POST /router/ask| FastAPI[3. FastAPI Backend main.py]
-    FastAPI --> AuthDep[4. Auth Dependency get_current_user_id]
-    AuthDep --> Validation[5. Prompt Guard _validate_prompt]
-    Validation --> RuleEngine{6. Rule Engine rules/local}
-    RuleEngine -->|Inconclusive| Classifier[7. LLM Classifier Agent classify_prompt]
-    Classifier --> Policy[8. Routing Policy route_decision]
-    Policy --> ModelAdapter[9. Model Adapter execute]
-    ModelAdapter --> QualityJudge{10. Quality Judge evaluate_answer}
-    QualityJudge -->|PASS| RespBuild[11. Build AskResponse]
-    QualityJudge -->|FAIL| StrongModel[10b. Strong Model Escalation]
+    UserPrompt["User Prompt"] --> ConsoleUI["1. Next.js Console (app/console/page.tsx)"]
+    ConsoleUI -->|"getToken"| ClerkAuth["2. Clerk Auth Session"]
+    ClerkAuth -->> ConsoleUI: "JWT Token"
+    ConsoleUI -->|"POST /router/ask"| FastAPI["3. FastAPI Backend (main.py)"]
+    FastAPI --> AuthDep["4. Auth Dependency (get_current_user_id)"]
+    AuthDep --> Validation["5. Prompt Guard (_validate_prompt)"]
+    Validation --> RuleEngine{"6. Rule Engine (rules/local)"}
+    RuleEngine -->|"Inconclusive"| Classifier["7. LLM Classifier Agent (classify_prompt)"]
+    Classifier --> Policy["8. Routing Policy (route_decision)"]
+    Policy --> ModelAdapter["9. Model Adapter (execute)"]
+    ModelAdapter --> QualityJudge{"10. Quality Judge (evaluate_answer)"}
+    QualityJudge -->|"PASS"| RespBuild["11. Build AskResponse"]
+    QualityJudge -->|"FAIL"| StrongModel["10b. Strong Model Escalation"]
     StrongModel --> RespBuild
-    RespBuild --> MongoStore[(12. MongoDB Persist persist_ask_response)]
-    RespBuild --> ConsoleRender[13. Render Result Cards]
+    RespBuild --> MongoStore[("12. MongoDB Persist (persist_ask_response)")]
+    RespBuild --> ConsoleRender["13. Render Result Cards"]
 ```
 
 ---
@@ -50,7 +50,7 @@ flowchart TD
 * **Cost:** $0.00 | **LLM API Calls:** 0
 
 ### Step 3 & 4: API Dispatch & Authentication
-* **Component:** `frontend/lib/api.ts` $\rightarrow$ `backend/app/auth/dependencies.py`
+* **Component:** `frontend/lib/api.ts` -> `backend/app/auth/dependencies.py`
 * **Action:** Client sends HTTP POST to `/router/ask` with `Authorization: Bearer <jwt>`. Backend extracts token `kid`, looks up key in JWKS cache, and validates signature/claims.
 * **Cost:** $0.00 | **LLM API Calls:** 0
 
@@ -114,48 +114,48 @@ flowchart TD
 ### Scenario 1 — Cheap Model Succeeds (Standard Run)
 ```text
 User Prompt: "What is the boiling point of water?"
- ↓
-Rules Engine: Obvious simple QA (len < 80 chars) → decision: simple_qa (0 routing calls)
- ↓
+ ->
+Rules Engine: Obvious simple QA (len < 80 chars) -> decision: simple_qa (0 routing calls)
+ ->
 Policy Selection: mistral-fast (cheapest capable)
- ↓
+ ->
 Primary Execution: Responds "100°C (212°F)"
- ↓
+ ->
 Quality Judge: Passed (score: 0.95 >= 0.70)
- ↓
+ ->
 Final Response: escalated = False, model_api_calls = 1, total_llm_api_calls = 1
 ```
 
 ### Scenario 2 — Quality Failure & Escalation
 ```text
 User Prompt: "Write a complex distributed lock algorithm in Python with detailed edge cases."
- ↓
+ ->
 Classifier Agent: task_type = coding, complexity = high (1 routing call)
- ↓
+ ->
 Policy Selection: mistral-fast
- ↓
+ ->
 Primary Execution: Responds with brief code snippet missing concurrency safety
- ↓
-Quality Judge: Failed (score: 0.52 < 0.70) → Rejection reason: quality gate failed
- ↓
+ ->
+Quality Judge: Failed (score: 0.52 < 0.70) -> Rejection reason: quality gate failed
+ ->
 Strong Model Escalation: Re-executes on mistral-strong (mistral-large-latest)
- ↓
+ ->
 Final Response: escalated = True, model_api_calls = 2, total_llm_api_calls = 3
 ```
 
 ### Scenario 3 — Provider Failure & Failover
 ```text
 User Prompt: "Summarize the history of quantum computing."
- ↓
+ ->
 Policy Selection: groq-fast
- ↓
+ ->
 Primary Execution: Groq returns HTTP 429 Rate Limit
- ↓
-Reliability Handler: Retries 2 times with backoff → Still 429
- ↓
+ ->
+Reliability Handler: Retries 2 times with backoff -> Still 429
+ ->
 Provider Failover: Automatically switches to mistral-fast
- ↓
+ ->
 Execution Success: Responds via Mistral
- ↓
+ ->
 Final Response: transport_fallback = True, model_used = mistral-fast
 ```

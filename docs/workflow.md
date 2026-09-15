@@ -4,75 +4,47 @@
 
 ---
 
-## 1. Complete Request Workflow
+## 1. Complete Request Flowchart
 
-The flow diagram below details how user queries move through the system, from prompt submission to rendering:
+The flowchart below illustrates how user requests move through classification, routing, execution, reliability failover, quality judging, escalation, persistence, and telemetry:
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant UI as Next.js Console UI
-    participant Clerk as Clerk Auth
-    participant API as FastAPI Gateway
-    participant AuthDep as get_current_user_id
-    participant Rules as Deterministic Rule Engine
-    participant Classifier as LLM Classifier Agent
-    participant Policy as Routing Policy
-    participant Exec as Model Execution Service
-    participant Judge as Quality Evaluator
-    participant Escalation as Strong Model Escalation
-    participant DB as MongoDB Storage
-    participant LangSmith as LangSmith Tracing
+flowchart TD
+    A["1. User Request"] --> B["2. Clerk Authentication (getToken)"]
+    B --> C["3. FastAPI Gateway (/router/ask)"]
+    C --> D["4. Prompt Validation Guard"]
+    D --> E{"5. Deterministic Rule Engine"}
 
-    User->>UI: Input prompt & click "Run Router"
-    UI->>Clerk: await getToken()
-    Clerk-->>UI: Return JWT Session Token
-    UI->>API: POST /router/ask { prompt } + Authorization: Bearer JWT
-    API->>AuthDep: Validate token signature & claims
-    AuthDep-->>API: Verified user_id
+    E -->|"Obvious Match (e.g. short QA)"| F["6. Routing Policy"]
+    E -->|"Uncertain / Complex Prompt"| G["5b. LLM Classifier Agent"]
+    G -->|"Task Type & Complexity"| F
 
-    API->>Rules: Check rule patterns (length, regex)
-    alt Obvious Rule Match
-        Rules-->>API: Decision (rules/local, 0 API calls)
-    else Uncertain Prompt
-        API->>Classifier: classify_prompt(prompt)
-        Classifier-->>API: Decision (via LLM Classifier)
-    end
+    F --> H["7. Select Cheapest Capable Model"]
+    H --> I["8. Primary Model Execution"]
 
-    API->>Policy: route_decision(decision)
-    Policy-->>API: Selected Model (cheapest capable)
+    I -->|"429 Rate Limit / 5xx Outage"| J{"Retry Engine"}
+    J -->|"Retry < 2 times"| I
+    J -->|"Retries Exhausted"| K["8b. Provider Failover (Alternative Provider)"]
+    K --> L["Model Answer Text"]
+    I -->|"Success"| L
 
-    API->>Exec: execute(selected_model, prompt)
-    alt Provider Responds
-        Exec-->>API: Primary Execution Result
-    else Provider 429/5xx Error
-        Exec->>Exec: Retry with backoff / Failover to alternative provider
-        Exec-->>API: Fallback Execution Result
-    end
+    L --> M{"9. Selective Quality Judge"}
+    M -->|"Passed (Score >= 0.70)"| N["10. Final Answer"]
+    M -->|"Failed (Score < 0.70)"| O{"Strong Model Available?"}
+    
+    O -->|"Yes"| P["9b. Strong Model Escalation Pass"]
+    P --> N
+    O -->|"No"| N
 
-    API->>Judge: evaluate_answer(prompt, text)
-    Judge-->>API: QualityVerdict (passed, score)
-
-    alt Quality Passed (score >= 0.70)
-        API->>API: Retain initial model output
-    else Quality Failed (score < 0.70) & Strong Model Available
-        API->>Escalation: execute(strongest_capable_model, prompt)
-        Escalation-->>API: Escalated Output
-        API->>Judge: evaluate_answer (verdict update, single-pass invariant)
-        API->>API: Set escalated = True
-    end
-
-    API->>API: Compute token breakdown, cost legs & savings
-    API-->>DB: Background Task: Persist to query_logs collection
-    API-->>LangSmith: Telemetry trace span
-    API-->>UI: Return AskResponse JSON
-    UI-->>User: Render Answer, Cost Breakdown & Trace Timeline
+    N --> Q["11. Cost & Savings Calculation"]
+    Q --> R[("12. Async MongoDB Persistence (query_logs)")]
+    Q --> S["13. Send Telemetry to LangSmith"]
+    Q --> T["14. Return JSON to Next.js UI"]
 ```
 
 ---
 
-## 2. Stage Breakdown & Request Types
+## 2. Detailed Stage Breakdown
 
 ### A. Simple Request (Rules Engine Match)
 * **Trigger:** Prompts under 80 characters (e.g., `"What is the capital of France?"`, `"Define API"`) or matching deterministic regex rules.
@@ -114,14 +86,16 @@ sequenceDiagram
 ### Cost Calculation (`app/cost/calculator.py`)
 Cost is computed per execution leg using token prices from `ModelSpec`:
 
-$$\text{Leg Cost} = \left(\frac{\text{Input Tokens}}{1000} \times \text{input\_cost\_per\_1k}\right) + \left(\frac{\text{Output Tokens}}{1000} \times \text{output\_cost\_per\_1k}\right)$$
+```text
+Leg Cost = (Input Tokens / 1000 * input_cost_per_1k) + (Output Tokens / 1000 * output_cost_per_1k)
+```
 
 * **`actual_cost`:** Sum of costs across all executed legs (including classification if billed, primary execution, and escalation execution if triggered).
 * **`baseline_cost`:** Estimated cost if the prompt had been routed directly to the strongest capable model (`strongest_capable`) from the start.
-* **`savings`:** $\text{baseline\_cost} - \text{actual\_cost}$
-* **`savings_pct`:** $\frac{\text{baseline\_cost} - \text{actual\_cost}}{\text{baseline\_cost}} \times 100$
+* **`savings`:** `baseline_cost - actual_cost`
+* **`savings_pct`:** `((baseline_cost - actual_cost) / baseline_cost) * 100`
 
 ### API-Call Tracking Definitions
 * **`routing_api_calls`:** Number of LLM API calls spent performing classification (0 for rule engine, 1 for LLM classifier agent).
 * **`model_api_calls`:** Number of LLM API calls spent generating model answers (1 for standard run, 2 if quality escalation occurred).
-* **`total_llm_api_calls`:** Total API calls for the entire request ($\text{routing\_api\_calls} + \text{model\_api\_calls}$).
+* **`total_llm_api_calls`:** Total API calls for the entire request (`routing_api_calls + model_api_calls`).

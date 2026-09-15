@@ -43,39 +43,39 @@ The diagram below represents the exact end-to-end request flow implemented in th
 
 ```mermaid
 flowchart TD
-    User([User Prompt]) --> Frontend[Next.js 15 Console UI]
-    Frontend -->|1. Get Session Token| Clerk[Clerk Auth Service]
-    Clerk -->> Frontend: JWT Session Token
-    Frontend -->|2. POST /router/ask + Authorization Bearer| FastAPI[FastAPI Backend Gateway]
+    User["User Prompt"] --> Frontend["Next.js 15 Console UI"]
+    Frontend -->|"1. Get Session Token"| Clerk["Clerk Auth Service"]
+    Clerk -->> Frontend: "JWT Session Token"
+    Frontend -->|"2. POST /router/ask + Authorization Bearer"| FastAPI["FastAPI Backend Gateway"]
     
-    FastAPI --> AuthDep[Auth Dependency: get_current_user_id]
-    AuthDep -->|3. RS256 JWKS Signature Verification| ClerkJWKS[Clerk JWKS Endpoint / Cache]
+    FastAPI --> AuthDep["Auth Dependency: get_current_user_id"]
+    AuthDep -->|"3. RS256 JWKS Signature Verification"| ClerkJWKS["Clerk JWKS Endpoint / Cache"]
     
-    AuthDep --> RouterPipeline[Router Pipeline: answer_prompt]
+    AuthDep --> PipelineRoot["Router Pipeline: answer_prompt"]
     
-    subgraph RouterPipeline[Routing & Execution Pipeline]
-        RouterPipeline --> RuleEngine{1. Deterministic Rule Engine}
-        RuleEngine -->|Obvious QA / Short Prompt| Policy[3. Routing Policy]
-        RuleEngine -->|Uncertain Request| ClassifierAgent[2. LLM Classifier Agent]
-        ClassifierAgent -->|Task Type & Complexity| Policy
+    subgraph RouterPipeline ["Routing & Execution Pipeline"]
+        PipelineRoot --> RuleEngine{"1. Deterministic Rule Engine"}
+        RuleEngine -->|"Obvious QA / Short Prompt"| Policy["3. Routing Policy"]
+        RuleEngine -->|"Uncertain Request"| ClassifierAgent["2. LLM Classifier Agent"]
+        ClassifierAgent -->|"Task Type & Complexity"| Policy
         
-        Policy --> ModelRegistry[(Model Registry)]
-        Policy -->|Selected Model| PrimaryExec[4. Primary Model Execution]
+        Policy --> ModelRegistry[("Model Registry")]
+        Policy -->|"Selected Model"| PrimaryExec["4. Primary Model Execution"]
         
-        PrimaryExec -->|Transport Error 429/5xx| Failover[5. Retry & Provider Failover]
+        PrimaryExec -->|"Transport Error 429/5xx"| Failover["5. Retry & Provider Failover"]
         Failover --> PrimaryExec
         
-        PrimaryExec -->|Answer Text| Judge{6. Selective Quality Judge}
+        PrimaryExec -->|"Answer Text"| Judge{"6. Selective Quality Judge"}
         
-        Judge -->|Pass: score >= 0.70| FinalResp[7. Construct AskResponse]
-        Judge -->|Fail: score < 0.70| StrongEscalation[6b. Escalation: Strongest Capable Model]
+        Judge -->|"Pass: score >= 0.70"| FinalResp["7. Construct AskResponse"]
+        Judge -->|"Fail: score < 0.70"| StrongEscalation["6b. Escalation: Strongest Capable Model"]
         StrongEscalation --> FinalResp
     end
     
-    FinalResp -->|Background Async Task| Mongo[(MongoDB: query_logs)]
-    FinalResp -->|Telemetry Spans| LangSmith[LangSmith Tracing]
-    FinalResp -->> Frontend: Return AskResponse JSON
-    Frontend --> UserRender[Render Answer, Cost & Trace Timeline]
+    FinalResp -->|"Background Async Task"| Mongo[("MongoDB: query_logs")]
+    FinalResp -->|"Telemetry Spans"| LangSmith["LangSmith Tracing"]
+    FinalResp -->> Frontend: "Return AskResponse JSON"
+    Frontend --> UserRender["Render Answer, Cost & Trace Timeline"]
 ```
 
 ---

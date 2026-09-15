@@ -16,7 +16,7 @@ In this project, LangSmith is used to capture hierarchical execution traces of t
 
 1. **Create Account:** Go to [smith.langchain.com](https://smith.langchain.com/) and create or sign into an account.
 2. **Create Project:** Navigate to **Projects** and create a project named `cost-aware-router`.
-3. **Generate API Key:** Go to **Settings** $\rightarrow$ **API Keys** and generate a personal access token (starts with `lsv2_pt_...`).
+3. **Generate API Key:** Go to **Settings** -> **API Keys** and generate a personal access token (starts with `lsv2_pt_...`).
 
 ---
 
@@ -42,21 +42,27 @@ LANGCHAIN_PROJECT=cost-aware-router
 
 ## 4. Connection & Tracing Architecture
 
+The flowchart below demonstrates how environment configuration, tracing initialization, decorated execution spans, and cloud telemetry streams connect:
+
 ```mermaid
 flowchart TD
-    Env[Environment Variables: LANGCHAIN_API_KEY] --> Setup[setup_tracing app/core/tracing.py]
-    Setup -->|Set OS Env Vars| SDK[LangSmith Python SDK]
+    SubApp["1. FastAPI App Startup (app/main.py)"] --> InitTracing["2. setup_tracing (app/core/tracing.py)"]
+    InitTracing -->|"Read LANGCHAIN_API_KEY"| SetEnv["3. Set OS Environment Variables"]
+    SetEnv --> LSDK["4. Initialize LangSmith SDK"]
+
+    UserReq["5. Incoming Request (/router/ask)"] --> TraceRoot["6. @traceable: Root Span (router-ask-pipeline)"]
     
-    FastAPI[FastAPI Application Startup] --> Setup
-    
-    subgraph Execution Points
-        Pipeline[answer_prompt] -->|@traceable name=router-ask-pipeline| SDK
-        Classifier[classify_prompt] -->|@traceable| SDK
-        Adapter[execute] -->|@traceable| SDK
-        Judge[evaluate_answer] -->|@traceable| SDK
-    end
-    
-    SDK -->|Async Telemetry Spans| Cloud[LangSmith Dashboard Cloud]
+    TraceRoot --> TraceClassifier["7. @traceable: classify_prompt"]
+    TraceClassifier -->|"Trace Inputs, Task Type & Latency"| TraceRoot
+
+    TraceRoot --> TraceExec["8. @traceable: execute"]
+    TraceExec -->|"Trace Model API ID, Tokens & Latency"| TraceRoot
+
+    TraceRoot --> TraceEval["9. @traceable: evaluate_answer"]
+    TraceEval -->|"Trace Quality Score & Verdict"| TraceRoot
+
+    TraceRoot -->|"Span Completed"| TelemetryStream["10. Async Telemetry Stream"]
+    TelemetryStream --> LangSmithCloud["11. LangSmith Cloud Dashboard (smith.langchain.com)"]
 ```
 
 ### Trace Setup Code (`backend/app/core/tracing.py`)
