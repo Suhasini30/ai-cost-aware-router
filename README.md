@@ -13,8 +13,6 @@
 ## 🌐 Live Application
 
 - **Frontend Dashboard:** 👉 **[https://frontend-ten-hazel-32.vercel.app/](https://frontend-ten-hazel-32.vercel.app/)**
-- **Backend API:** 👉 **[https://ai-cost-aware-router-api.onrender.com/](https://ai-cost-aware-router-api.onrender.com/)**
-- **Swagger API Documentation:** 👉 **[https://ai-cost-aware-router-api.onrender.com/docs](https://ai-cost-aware-router-api.onrender.com/docs)**
 
 ---
 
@@ -349,8 +347,6 @@ MONGODB_COLLECTION=your_collection
 ## 🔗 Links
 - **GitHub Repository:** [https://github.com/Suhasini30/ai-cost-aware-router](https://github.com/Suhasini30/ai-cost-aware-router)
 - **Live Frontend:** [https://frontend-ten-hazel-32.vercel.app/](https://frontend-ten-hazel-32.vercel.app/)
-- **Backend API:** [https://ai-cost-aware-router-api.onrender.com/](https://ai-cost-aware-router-api.onrender.com/)
-- **Swagger Documentation:** [https://ai-cost-aware-router-api.onrender.com/docs](https://ai-cost-aware-router-api.onrender.com/docs)
 
 ---
 
