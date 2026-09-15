@@ -1,6 +1,6 @@
 # 🔀 Cost-Aware Multi-Model AI Router
 
-> **Built a FastAPI-based intelligent LLM router that dynamically selects cost-efficient models based on request complexity, with cheap-first execution, failover, selective quality evaluation, escalation, and MongoDB-based cost/routing analytics.**
+> **An intelligent multi-model LLM routing system that selects a cost-efficient model based on request complexity while maintaining response quality. The system combines deterministic routing, conditional classification, cheap-first execution, provider failover, selective quality evaluation, escalation, and MongoDB-based analytics.**
 
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js%2015-000000.svg?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -10,323 +10,350 @@
 
 ---
 
-## 🌐 Live Web Application
-
-Experience the live cost-aware router dashboard and API:
+## 🌐 Live Application
 
 - **Frontend Dashboard:** 👉 **[https://frontend-ten-hazel-32.vercel.app/](https://frontend-ten-hazel-32.vercel.app/)**
-- **Backend API (Swagger):** 👉 **[https://ai-cost-aware-router-api.onrender.com/docs](https://ai-cost-aware-router-api.onrender.com/docs)**
+- **Backend API:** 👉 **[https://ai-cost-aware-router-api.onrender.com/](https://ai-cost-aware-router-api.onrender.com/)**
+- **Swagger API Documentation:** 👉 **[https://ai-cost-aware-router-api.onrender.com/docs](https://ai-cost-aware-router-api.onrender.com/docs)**
 
 ---
 
-## ❓ What it does ?
+## ❓ What Does It Do?
 
-**Cost-Aware Multi-Model AI Router** is an intelligent LLM routing system that selects a cost-efficient model for each user request while maintaining response quality.
+The Cost-Aware Multi-Model AI Router is designed to solve a simple problem:
 
-Instead of sending every request to an expensive model, the router follows a **cheap-first strategy**:
+> **Why use an expensive model for every request when a cheaper model can handle many requests successfully?**
 
-`User Request → Rules Engine → Classifier (when needed) → Cheapest Capable Model → Quality Check (selective) → Escalation/Fallback`
-
-1. **Intelligent Cost-Aware Routing**: Uses a deterministic rules engine for obvious requests and an LLM classifier only when the request cannot be confidently classified by rules.
-2. **Cheap-First Execution**: Attempts an inexpensive model before using stronger models, avoiding unnecessary calls to expensive models.
-3. **Reliability & Failover**: Supports provider-level retries and failover. Handles temporary provider failures and rate limits.
-4. **Selective Quality Evaluation**: Does not judge every response unnecessarily. Failed evaluations can trigger a single escalation to a stronger model with instructions for improvement.
-5. **Cost & Performance Analytics**: Tracks per-request model cost, estimated savings, model usage, routing decisions, and API calls through MongoDB-backed APIs.
-6. **MCP Model Registry**: Uses MCP-based tooling to retrieve provider pricing information and keep it synchronized.
-
----
-
-## 💥 Problem Statement
-
-AI applications often suffer from **cost inefficiencies** and **reliability issues**:
-- **Overspending**: Sending every prompt to expensive, flagship models (like GPT-4 or Claude 3 Opus) wastes money on simple tasks like summarization or basic Q&A.
-- **Complexity Misalignment**: Simple requests don't need deep reasoning, while complex requests fail on smaller, cheaper models.
-- **Provider Outages**: Relying on a single LLM provider leads to downtime during outages or rate limits.
-- **Silent Failures**: Cheap models may hallucinate or provide poor answers without a mechanism to evaluate and escalate to a better model.
-- **Pricing Drift**: Model pricing changes frequently, making static cost configurations obsolete and inaccurate over time.
-
----
-
-## 💡 Solution
-
-**Cost-Aware Multi-Model AI Router** solves these issues by dynamically optimizing for both cost and quality:
-- **Smart Routing**: Routes each request to the cheapest model capable of handling the task based on rules and LLM classification.
-- **Robust Failover**: Automatically switches to another capable provider if the initial model fails or hits rate limits.
-- **Automated Quality Control**: Selectively judges responses and escalates to a stronger model when the initial output is poor.
-- **Transparent Analytics**: Provides a Next.js dashboard to monitor routing decisions, track costs, and calculate estimated savings compared to using a strong model by default.
-- **MCP Integration**: Keeps pricing and registry information up to date without impacting the core request execution path.
-
-### Which AI Models Are Used and Why?
-
-The system groups models into two tiers: **Fast** (cheaper, quick response) and **Strong** (high quality, deep reasoning).
-
-1. **Mistral (`mistral`)**:
-   - *Fast*: `mistral-small-latest` (Great for fast chat, summarization)
-   - *Strong*: `mistral-large-latest` (Excellent reasoning, coding, and multilingual support)
-2. **Gemini (`gemini`)**:
-   - *Fast*: `gemini-3.6-flash` (Cost-effective with a massive context window up to 1M tokens)
-   - *Strong*: `gemini-3.6-flash` (Configured for more complex routing such as multimodal/vision processing and higher output token limits)
-3. **Groq (`groq`)**:
-   - *Fast*: `openai/gpt-oss-20b` (Ultra-fast inference for rapid classification and simple tasks)
-   - *Strong*: `qwen/qwen3.6-27b` (Strong open-source reasoning capabilities served at blazing speeds)
-
----
-
-## 🚀 How to Run it
-
-### Prerequisites
-- **Node.js 18+** & `npm`
-- **Python 3.10+**
-- Free API Keys:
-  - **Gemini API Key**
-  - **Groq API Key**
-  - **Mistral API Key**
-  - **MongoDB** (Local or Atlas) connection string
-  - **Clerk** account for authentication
-  - **LangSmith** API Key (Optional, for tracing)
-
----
-
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/Suhasini30/ai-cost-aware-router.git
-cd ai-cost-aware-router
-```
-
----
-
-### Step 2: Backend Setup & Execution
-```bash
-# Navigate to backend directory
-cd backend
-
-# Create and activate Python virtual environment
-python -m venv venv
-# On Windows (PowerShell):
-.\venv\Scripts\activate
-# On macOS / Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create your .env file
-cp .env.example .env
-```
-
-*Fill in your keys in `backend/.env` (see the Environment Variables section below).*
-
-```bash
-# Start the FastAPI Backend Server
-python server.py
-# Or using uvicorn: uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-*Backend runs locally at: `http://127.0.0.1:8000` (Swagger documentation at `http://127.0.0.1:8000/docs`)*
-
----
-
-### Step 3: Frontend Setup & Execution
-```bash
-# Open a new terminal and navigate to frontend directory
-cd frontend
-
-# Install Node dependencies
-npm install
-
-# Create your local frontend environment file
-cp .env.example .env
-```
-
-*Configure `frontend/.env` with the frontend variables listed below.*
-
-```bash
-# Start the Next.js Development Server
-npm run dev
-```
-*Frontend runs locally at: `http://localhost:3000`*
-
----
-
-## 🔑 What the ENV variables
-
-Create your `.env` file in the backend directory and `.env` in the frontend directory.
-
-### 1. Backend Environment Variables (`backend/.env`)
-
-```env
-# ==========================================
-# 1. LLM Providers
-# ==========================================
-GEMINI_API_KEY=your_gemini_api_key_here
-GROQ_API_KEY=your_groq_api_key_here
-MISTRAL_API_KEY=your_mistral_api_key_here
-XAI_API_KEY=your_xai_api_key_here
-
-# ==========================================
-# 2. Router Configuration
-# ==========================================
-CLASSIFIER_PROVIDER=groq
-CLASSIFIER_MODEL=openai/gpt-oss-20b
-JUDGE_PROVIDER=groq
-JUDGE_MODEL=qwen/qwen3.6-27b
-
-# ==========================================
-# 3. Database (MongoDB)
-# ==========================================
-MONGO_DB_URL=mongodb+srv://user:password@cluster.mongodb.net/
-MONGODB_URI=mongodb://localhost:27017
-MONGODB_DATABASE=ai_cost_router
-MONGODB_COLLECTION=requests
-
-# ==========================================
-# 4. Security & Tracing
-# ==========================================
-JWT_SECRET_KEY=your_jwt_secret_key
-LANGCHAIN_API_KEY=your_langchain_api_key
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_PROJECT=cost-aware-router
-LANGSMITH_API_KEY=your_langsmith_api_key
-
-# ==========================================
-# 5. Rules Engine Thresholds
-# ==========================================
-ROUTER_COMPLEXITY_LONG_PROMPT_CHARS=200
-ROUTER_RULE_MAX_SIMPLE_QA_CHARS=80
-ROUTER_JUDGE_MIN_ANSWER_CHARS=20
-ROUTER_JUDGE_TASK_TYPES=coding,math,reasoning
-ROUTER_HIGH_COMPLEXITY_KEYWORDS=complex,algorithm,architect,optimiz,distributed,concurren,production,critical
-```
-
-### 2. Frontend Environment Variables (`frontend/.env`)
-
-```env
-# ==========================================
-# 1. API Connection
-# ==========================================
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
-
-# ==========================================
-# 2. Clerk Authentication
-# ==========================================
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-```
-
----
-
-## 🔍 Router Details / Explainability
-
-The router provides detailed information for each request so users can understand **why a model was selected, what happened during execution, and whether escalation was required**.
-
-For every completed request, the dashboard can display relevant routing and evaluation information such as:
-
-| Field                        | Description                                                          |
-| ---------------------------- | -------------------------------------------------------------------- |
-| **Initial Model**            | Model selected for the first execution attempt                       |
-| **Final Model**              | Model that ultimately produced the final response                    |
-| **Task Type**                | Classified task category, such as coding, reasoning, or general Q&A  |
-| **Routing Confidence**       | Confidence associated with the routing/classification decision       |
-| **Quality Score**            | Score produced when selective quality evaluation is performed        |
-| **Initial Verdict**          | Quality evaluation result before any potential escalation            |
-| **Escalated**                | Indicates whether the request was escalated to a stronger model      |
-| **Rejection Reason**         | Reason the initial response was not accepted, when applicable        |
-| **Issues Found**             | Problems identified during quality evaluation                        |
-| **Improvement Instructions** | Guidance passed to the stronger model during escalation              |
-| **Total Calls**              | Number of model/API calls involved in processing the request         |
-| **Cost**                     | Estimated inference cost for the request                             |
-| **Estimated Savings**        | Estimated savings compared with the configured strong-model baseline |
-
-### Example Router Details
-
-The following is an **illustrative example only** and does not represent a measured project result:
+Instead of sending every prompt directly to a strong and expensive model, the router follows a **cheap-first strategy**:
 
 ```text
-┌─────────────────────────────────────┐
-│          Router Details             │
-├─────────────────────────────────────┤
-│ Initial Model    : Fast Model       │
-│ Task Type        : Coding           │
-│ Routing Confidence: 0.91            │
-│ Quality Score    : 45%              │
-│ Initial Verdict  : Failed           │
-│ Escalated        : Yes              │
-│ Final Model      : Strong Model     │
-│ Total Calls      : 2                │
-│ Cost             : $0.00XX          │
-│ Estimated Savings: $0.00XX          │
-└─────────────────────────────────────┘
+User Request
+     │
+     ▼
+Rules Engine
+     │
+     ├── Obvious Request ─────────────┐
+     │                                │
+     └── Uncertain Request            │
+                 │                    │
+                 ▼                    │
+             Classifier               │
+                 │                    │
+                 └─────────┬─────────┘
+                           ▼
+                    Routing Policy
+                           │
+                           ▼
+                 Cheapest Capable Model
+                           │
+                           ▼
+                    Model Execution
+                           │
+                 ┌──────────┴──────────┐
+                 │                     │
+              Success               Failure
+                 │                     │
+                 ▼                     ▼
+          Selective Quality     Retry / Failover
+                Judge
+            ┌─────┴─────┐
+           PASS       FAIL
+            │           │
+            ▼           ▼
+          FINAL    Strong Model
+                        │
+                        ▼
+                      FINAL
+                        │
+                        ▼
+                     MongoDB
+                        │
+                        ▼
+                Next.js Dashboard
 ```
 
-When a response is rejected by the quality evaluation, the Router Details view can also expose **why it was rejected**, including the identified issues and improvement instructions.
-
-This makes the router more transparent than simply returning a final answer: users can inspect the **routing decision, model transition, quality evaluation, escalation, and cost** for an individual request.
+The main objective is to reduce unnecessary inference cost without blindly sacrificing response quality.
 
 ---
 
-## 📊 Evaluation
+## ✨ Key Highlights
 
-The router is evaluated against an always-strong-model baseline using a fixed set of test prompts covering simple Q&A, summarization, coding, reasoning, and other task types.
+- **Cost-Aware Routing** — selects models according to task requirements and configured cost/capability information.
+- **Cheap-First Execution** — prefers an inexpensive capable model before moving to stronger models.
+- **Rule-Based Routing** — avoids unnecessary LLM classification for requests that can be identified deterministically.
+- **Conditional Classification** — uses an LLM classifier only when the rules engine cannot confidently determine the request type.
+- **Multi-Provider Execution** — supports multiple LLM providers through provider-specific model adapters.
+- **Retry & Failover** — handles provider failures and rate-limit-related failures without immediately exposing the failure to the user.
+- **Selective Quality Evaluation** — evaluates responses only when configured conditions require judging.
+- **Strong-Model Escalation** — a failed quality evaluation can trigger escalation to a stronger model.
+- **Cost Tracking** — records model usage and estimated inference cost.
+- **Routing Analytics** — tracks routing decisions, model usage, calls, cost, and savings information.
+- **MongoDB History** — stores request and routing information for later analysis.
+- **Explainable Routing** — exposes routing and evaluation details instead of returning only the final answer.
+- **Clerk Authentication** — protects the application using Clerk-based authentication.
+- **MCP-Based Registry Tooling** — supports retrieving provider/model pricing information separately from the normal request execution path.
 
-The evaluation measures:
+---
 
-- Routing accuracy
-- Response quality
-- Average cost per request
-- Estimated cost savings
-- Total LLM API calls
-- Failover rate
-- Escalation rate
+## 💡 Problem Statement
 
-Results are generated from the project's evaluation/test suite and are reported without hard-coded or manually estimated metrics.
+Multi-model AI applications face several challenges when deciding which model should handle a request.
+
+### 1. Overspending
+Sending every request to a strong model increases inference cost even when the request is simple.
+For example: *"What is the capital of India?"* does not necessarily require the same model capability as: *"Design a distributed event-driven architecture for a high-throughput financial transaction system."*
+
+### 2. Complexity Misalignment
+A cheap model may be sufficient for simple requests but may struggle with complex coding, reasoning, or architectural tasks.
+
+### 3. Provider Reliability
+A model provider can experience rate limits, temporary API failures, service interruptions, or model availability issues. A router relying on only one provider becomes a single point of failure.
+
+### 4. Silent Quality Problems
+A model can successfully return an HTTP response while still producing a poor answer. Therefore: **API Success ≠ Answer Quality**. The router addresses this through selective quality evaluation.
+
+### 5. Pricing Drift
+LLM provider pricing can change over time. A static model registry can therefore become outdated. The project includes separate registry/pricing tooling to help identify provider pricing information without putting an MCP call on every user request.
+
+---
+
+## 🧠 Solution
+
+The router combines cost, capability, reliability, and quality control. The important design principle is:
+**Use the cheapest model that is capable of handling the request, rather than always using the strongest model.**
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
-                         USER
-                          │
-                          ▼
-                   ┌─────────────┐
-                   │ Rules Engine│
-                   └──────┬──────┘
-                          │
-                 Obvious request?
-                    /           \
-                  YES            NO
-                   │              │
-                   │        ┌─────▼─────┐
-                   │        │ Classifier│
-                   │        └─────┬─────┘
-                   │              │
-                   └──────┬───────┘
-                          ▼
-                 ┌─────────────────┐
-                 │ Routing Policy  │
-                 │ Cheap → Strong  │
-                 └────────┬────────┘
-                          ▼
-                 ┌─────────────────┐
-                 │ Model Execution │
-                 └────────┬────────┘
-                          │
-             ┌────────────┴────────────┐
-             │                         │
-     Provider/API failure      Successful response
-             │                         │
-             ▼                         ▼
-      Retry / Failover       Selective Quality Judge
-                                  /         \
-                               PASS         FAIL
-                                │             │
-                              FINAL       Escalation
-                                              │
-                                              ▼
-                                         Strong Model
-                                              │
-             ┌────────────────────────────────┘
-             ▼
-          MongoDB
-             │
-             ▼
-      Next.js Dashboard
+                ┌───────────────┐
+                │     USER      │
+                └───────┬───────┘
+                        │
+                        ▼
+                ┌──────────────────┐
+                │   Rules Engine   │
+                └────────┬─────────┘
+                         │
+         ┌───────────────┴───────────────┐
+         │                               │
+  Obvious Request                Uncertain Request
+         │                               │
+         ▼                               │
+ ┌──────────────┐                        │
+ │  Classifier  │                        │
+ └──────┬───────┘                        │
+        │                                │
+        └───────────────┬────────────────┘
+                        ▼
+                ┌─────────────────────┐
+                │   Routing Policy    │
+                │   Cheap → Strong    │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │  Cheapest Capable   │
+                │        Model        │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │   Model Execution   │
+                └──────────┬──────────┘
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+           SUCCESS                   FAILURE
+              │                         │
+              │                  Retry / Failover
+              │                         │
+              ▼                         ▼
+      ┌─────────────────┐       Another Provider
+      │ Selective Judge │
+      └───────┬─────────┘
+              │
+        ┌─────┴─────┐
+        │           │
+      PASS         FAIL
+        │           │
+        ▼           ▼
+      FINAL    Strong Model
+                    │
+                    ▼
+                  FINAL
+                    │
+                    ▼
+            ┌───────────┐
+            │  MongoDB  │
+            └─────┬─────┘
+                  │
+                  ▼
+            ┌───────────────┐
+            │  Next.js UI   │
+            │   Dashboard   │
+            └───────────────┘
 ```
+
+---
+
+## ⚙️ How It Works
+
+### 1. User Request
+The user submits a natural-language prompt through the web application.
+
+### 2. Rules Engine
+The router first checks whether the request can be classified using deterministic rules. This avoids unnecessary LLM calls for simple requests. Routing signals include prompt length, simple-question patterns, task type, complexity keywords, and configured thresholds.
+
+### 3. Conditional Classification
+If deterministic rules cannot confidently determine the request requirements, the router uses an LLM classifier to extract routing information (task type, complexity, capabilities, routing confidence).
+
+### 4. Routing Policy
+The routing policy uses the available model information to select a suitable model. The general principle is **Cheapest capable model → Stronger model only when required**.
+
+### 5. Model Execution
+The selected provider adapter executes the request. The system supports multiple providers, allowing the router to select or fall back to another provider when necessary.
+
+### 6. Provider Failure
+If a provider fails because of an API/provider problem, the reliability layer can **Retry / Failover** to an alternative configured model/provider.
+
+### 7. Selective Quality Evaluation
+When judging is required, an independent strong model evaluates the generated response. The judge produces quality information (score, verdict, issues, instructions).
+
+### 8. Quality Failure and Escalation
+If the generated answer fails the quality evaluation, the router can escalate the request to a stronger model using the improvement instructions.
+
+---
+
+## 🔍 Router Details / Explainability
+
+One of the important features of the project is that the user can inspect what happened during an individual request.
+
+| Field | Description |
+| --- | --- |
+| **Initial Model** | Model selected for the first execution |
+| **Final Model** | Model that generated the final response |
+| **Task Type** | Detected/classified task |
+| **Routing Confidence** | Confidence associated with the routing decision |
+| **Quality Score** | Score from the quality evaluator when judging occurs |
+| **Verdict** | Quality evaluation result |
+| **Escalated** | Whether the request required escalation |
+| **Rejection Reason** | Why the initial answer was rejected |
+| **Issues Found** | Problems identified by the evaluator |
+| **Improvement Instructions** | Guidance provided for escalation |
+| **Total Calls** | Model/API calls used during processing |
+| **Cost** | Estimated request cost |
+| **Estimated Savings** | Estimated savings against the configured strong-model baseline |
+
+### Example
+
+*The following is an illustrative example only.*
+
+```text
+┌──────────────────────────────────────┐
+│           Router Details             │
+├──────────────────────────────────────┤
+│ Initial Model      : Fast Model      │
+│ Final Model        : Strong Model    │
+│ Task Type          : Coding          │
+│ Routing Confidence : 0.91            │
+│ Quality Score      : 90%             │
+│ Verdict            : Failed → Retry  │
+│ Escalated          : Yes             │
+│ Total Calls        : 2               │
+│ Cost               : $0.00XX         │
+│ Estimated Savings  : $0.00XX         │
+└──────────────────────────────────────┘
+```
+
+The distinction between routing confidence and quality score is intentional:
+- **Routing Confidence:** "How confident was the router in its model selection?"
+- **Quality Score:** "How good was the generated answer?"
+
+---
+
+## 🚀 Installation
+
+### Prerequisites
+- Python 3.10+
+- Node.js 18+ & npm
+- MongoDB connection string
+- API keys for LLM providers (Gemini, Groq, Mistral, xAI)
+- Clerk credentials for authentication
+
+### 1️⃣ Clone the Repository
+```bash
+git clone https://github.com/Suhasini30/ai-cost-aware-router.git
+cd ai-cost-aware-router
+```
+
+### 2️⃣ Backend Setup
+```bash
+cd backend
+python -m venv venv
+
+# Windows PowerShell:
+.\venv\Scripts\Activate.ps1
+# macOS / Linux:
+source venv/bin/activate
+
+pip install -r requirements.txt
+cp .env.example .env
+
+# Start the server:
+python server.py
+# Or using uvicorn directly: uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+- Backend runs at: `http://127.0.0.1:8000`
+- Swagger Docs: `http://127.0.0.1:8000/docs`
+
+### 3️⃣ Frontend Setup
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+- Frontend runs at: `http://localhost:3000`
+
+---
+
+## 🔑 Environment Variables
+
+Use `.env.example` as the source of truth. Example variables include:
+
+### Backend
+```env
+# Provider Config
+GEMINI_API_KEY=your_gemini_api_key
+GROQ_API_KEY=your_groq_api_key
+MISTRAL_API_KEY=your_mistral_api_key
+XAI_API_KEY=your_xai_api_key
+
+# Router Configuration
+CLASSIFIER_PROVIDER=groq
+CLASSIFIER_MODEL=your_classifier_model
+JUDGE_PROVIDER=groq
+JUDGE_MODEL=your_judge_model
+
+# MongoDB Configuration
+MONGO_DB_URL=your_mongodb_connection_string
+MONGODB_URI=your_mongodb_uri
+MONGODB_DATABASE=your_database
+MONGODB_COLLECTION=your_collection
+```
+
+---
+
+## 🔗 Links
+- **GitHub Repository:** [https://github.com/Suhasini30/ai-cost-aware-router](https://github.com/Suhasini30/ai-cost-aware-router)
+- **Live Frontend:** [https://frontend-ten-hazel-32.vercel.app/](https://frontend-ten-hazel-32.vercel.app/)
+- **Backend API:** [https://ai-cost-aware-router-api.onrender.com/](https://ai-cost-aware-router-api.onrender.com/)
+- **Swagger Documentation:** [https://ai-cost-aware-router-api.onrender.com/docs](https://ai-cost-aware-router-api.onrender.com/docs)
+
+---
+
+## ⭐ Key Takeaway
+
+> **Don't send every request to the most expensive model. Route each request to the cheapest model that can handle it, verify quality when necessary, and escalate only when required.**
