@@ -18,7 +18,7 @@ Consider a user submitting the following prompt in the interactive console:
 flowchart TD
     UserPrompt["User Prompt"] --> ConsoleUI["1. Next.js Console (app/console/page.tsx)"]
     ConsoleUI -->|"getToken"| ClerkAuth["2. Clerk Auth Session"]
-    ClerkAuth -->> ConsoleUI: "JWT Token"
+    ClerkAuth -->|"JWT Session Token"| ConsoleUI
     ConsoleUI -->|"POST /router/ask"| FastAPI["3. FastAPI Backend (main.py)"]
     FastAPI --> AuthDep["4. Auth Dependency (get_current_user_id)"]
     AuthDep --> Validation["5. Prompt Guard (_validate_prompt)"]
